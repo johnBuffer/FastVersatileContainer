@@ -4,19 +4,18 @@
 int main()
 {
 	ObjectPool<int> pool;
-	std::cout << "Size: " << pool.size() << std::endl;
-	for (int i(0); i < 100; ++i)
+	
+	for (int i(10); i--;)
 	{
 		pool.add(i);
-		std::cout << "Add: " << i << std::endl;
 	}
-	std::cout << "Size: " << pool.size() << std::endl;
 
-	for (int i(0); i < pool.size(); ++i)
+	PoolIterator<int> it(pool.begin());
+
+	while (it.getNext())
 	{
-		std::cout << *pool[i] << std::endl;
+		std::cout << *it << std::endl;
 	}
-
-	std::cout << "Done." << std::endl;
+	
 	return 0;
 }
