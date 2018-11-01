@@ -108,6 +108,8 @@ public:
 
 	uint32_t size() const;
 
+	void remove(PoolIterator<T>& it);
+
 	PoolIterator<T> begin();
 
 private:
@@ -123,6 +125,8 @@ private:
 	void reserveMemory(uint32_t size);
 
 	Slot<T>& getFirstSlot();
+
+	friend PoolIterator<T>;
 };
 
 // Implementation of ObjectPool
@@ -178,6 +182,15 @@ template<class T>
 inline uint32_t ObjectPool<T>::size() const
 {
 	return m_size;
+}
+
+template<class T>
+inline void ObjectPool<T>::remove(PoolIterator<T>& it)
+{
+	Slot<T>* slot = it.m_current_object;
+	// NEXT TODO
+	slot->linkAfter(m_data[])
+	m_last_free_slot = slot->index;
 }
 
 template<class T>
