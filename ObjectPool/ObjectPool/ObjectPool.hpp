@@ -2,6 +2,12 @@
 #include <iostream>
 
 // Class representing a slot in the pool
+/*
+	m_object : the actual object of type T stored in the pool
+	m_index  : the index of the slot in the array 
+	m_prev   : the index of the previous non free slot in the pool
+	m_next   : the index of the next non free slot in the pool
+*/
 template<class T>
 class Slot
 {
@@ -62,6 +68,9 @@ private:
 
 };
 
+
+
+
 template<class T>
 class PoolIterator
 {
@@ -111,6 +120,7 @@ public:
 	void remove(PoolIterator<T>& it);
 
 	PoolIterator<T> begin();
+	PoolIterator<T> end();
 
 private:
 	uint32_t m_allocated_size;
@@ -197,6 +207,12 @@ template<class T>
 inline PoolIterator<T> ObjectPool<T>::begin()
 {
 	return PoolIterator<T>(m_first_object, m_data);
+}
+
+template<class T>
+inline PoolIterator<T> ObjectPool<T>::end()
+{
+	return PoolIterator<T>();
 }
 
 template<class T>

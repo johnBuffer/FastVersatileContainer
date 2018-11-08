@@ -16,6 +16,11 @@ int main()
 	{
 		std::cout << *it << std::endl;
 	}
+
+	for (int& i : pool)
+	{
+
+	}
 	
 	return 0;
 }
