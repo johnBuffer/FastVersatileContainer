@@ -12,6 +12,8 @@ template<class T>
 class Slot
 {
 public:
+	template<class> friend class ObjectPool;
+
 	Slot() :
 		m_object(),
 		m_index(0),
@@ -53,13 +55,6 @@ public:
 		return m_object;
 	}
 
-	void linkAfter(Slot<T>& prev)
-	{
-		m_prev = prev.m_index;
-		m_next = prev.m_next;
-		prev.m_next = m_index;
-	}
-
 private:
 	T m_object;
 	uint32_t m_index;
@@ -75,18 +70,25 @@ template<class T>
 class PoolIterator
 {
 public:
+	template<class> friend class ObjectPool;
+
 	PoolIterator(uint32_t index, Slot<T>* data) :
 		m_index(index),
 		m_data_ptr(data),
-		m_current_object(nullptr)
+		m_current_object(&data[index - 1])
 	{}
+
+	uint32_t getIndex() const
+	{
+		return m_index;
+	}
 
 	bool getNext()
 	{
-		if (m_index)
+		if (m_index != 2)
 		{
-			m_current_object = &m_data_ptr[m_index - 1];
 			m_index = m_current_object->next();
+			m_current_object = &m_data_ptr[m_index - 1];
 			return true;
 		}
 
@@ -98,20 +100,35 @@ public:
 		return m_current_object->object();
 	}
 
+	bool operator++()
+	{
+		return getNext();
+	}
+
 private:
 	uint32_t m_index;
 	Slot<T>* m_data_ptr;
 	Slot<T>* m_current_object;
 };
 
+template<class T>
+bool operator!=(const PoolIterator<T>& it1, const PoolIterator<T>& it2)
+{
+	return it1.getIndex() != it2.getIndex();
+}
+
+
+
+
+
 // The pool itself holding data and various ADD, READ ans REMOVE operations
 template<class T>
 class ObjectPool
 {
 public:
-	ObjectPool(uint32_t size = 1);
+	ObjectPool(uint32_t size = 0);
 
-	void add(const T& object);
+	uint32_t add(const T& object);
 
 	T* operator[](uint32_t index);
 
@@ -126,10 +143,7 @@ private:
 	uint32_t m_allocated_size;
 	uint32_t m_size;
 	Slot<T>* m_data;
-
-	Slot<T>* m_begin;
 	Slot<T>* m_end;
-
 	uint32_t m_first_free_slot;
 	uint32_t m_last_free_slot;
 
@@ -137,7 +151,8 @@ private:
 
 	Slot<T>& getFirstSlot();
 
-	friend PoolIterator<T>;
+	void insertAfter(Slot<T>& new_slot, Slot<T>& slot);
+	void insertBefore(Slot<T>& new_slot, Slot<T>& slot);
 };
 
 // Implementation of ObjectPool
@@ -146,35 +161,29 @@ inline ObjectPool<T>::ObjectPool(uint32_t size) :
 	m_allocated_size(0),
 	m_size(0),
 	m_data(nullptr),
-	m_begin(nullptr),
 	m_end(nullptr),
 	m_first_free_slot(0),
 	m_last_free_slot(0)
 {
 	reserveMemory(size+2);
 
-	m_begin = &m_data[0];
-	m_end   = &m_data[size + 1];
+	m_end = &m_data[1];
+	m_first_free_slot = m_end->m_next;
 }
 
 template<class T>
-inline void ObjectPool<T>::add(const T& object)
+inline uint32_t ObjectPool<T>::add(const T& object)
 {
+	// Allocate new object
 	Slot<T>& new_object = getFirstSlot();
 	new_object.object() = object;
 
-	if (m_first_object)
-	{
-		new_object.linkAfter(m_data[m_last_object - 1]);
-	}
-	else
-	{
-		m_first_object = new_object.index();
-	}
-
-	m_last_object = new_object.index();
+	// Insert new
+	insertBefore(new_object, *m_end);
 
 	++m_size;
+
+	return new_object.m_index;
 }
 
 template<class T>
@@ -197,20 +206,48 @@ inline void ObjectPool<T>::remove(PoolIterator<T>& it)
 {
 	Slot<T>* slot = it.m_current_object;
 	// NEXT TODO
-	slot->linkAfter(m_data[])
-	m_last_free_slot = slot->index;
+	//slot->linkAfter(m_data[])
+	//m_last_free_slot = slot->index;
+}
+
+template<class T>
+inline void ObjectPool<T>::insertAfter(Slot<T>& new_slot, Slot<T>& slot)
+{
+	// Update new slot
+	new_slot.m_prev = slot.m_index;
+	new_slot.m_next = slot.m_next;
+
+	// Update prev slot
+	slot.m_next = new_slot.m_index;
+
+	// Update next slot
+	m_data[slot.m_next-1].m_prev = new_slot.m_index;
+}
+
+template<class T>
+inline void ObjectPool<T>::insertBefore(Slot<T>& new_slot, Slot<T>& slot)
+{
+	// Update new slot
+	new_slot.m_prev = slot.m_prev;
+	new_slot.m_next = slot.m_index;
+
+	// Update prev slot
+	m_data[slot.m_prev - 1].m_next = new_slot.m_index;
+
+	// Update next slot
+	slot.m_prev = new_slot.m_index;
 }
 
 template<class T>
 inline PoolIterator<T> ObjectPool<T>::begin()
 {
-	return PoolIterator<T>(m_first_object, m_data);
+	return PoolIterator<T>(m_data->m_next, m_data);
 }
 
 template<class T>
 inline PoolIterator<T> ObjectPool<T>::end()
 {
-	return PoolIterator<T>();
+	return PoolIterator<T>(m_data[1].m_index, m_data);
 }
 
 template<class T>
@@ -225,11 +262,11 @@ inline void ObjectPool<T>::reserveMemory(uint32_t size)
 		// Init first slot and connect it with last free
 		m_first_free_slot = m_allocated_size+1;
 		m_data[m_allocated_size] = { m_first_free_slot, 0, 0};
-		for (uint32_t i(m_allocated_size+1); i < size; ++i)
+		for (uint32_t i(m_first_free_slot); i < size; ++i)
 		{
 			// Link new slots together
 			m_data[i] = {i+1, i, 0};
-			m_data[i].linkAfter(m_data[i-1]);
+			m_data[i - 1].m_next = i+1;
 		}
 
 		// Update las free

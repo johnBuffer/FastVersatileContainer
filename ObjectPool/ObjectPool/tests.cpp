@@ -11,15 +11,14 @@ int main()
 	}
 
 	PoolIterator<int> it(pool.begin());
-
-	while (it.getNext())
+	do
 	{
 		std::cout << *it << std::endl;
-	}
+	} while (it.getNext());
 
 	for (int& i : pool)
 	{
-
+		std::cout << i << std::endl;
 	}
 	
 	return 0;
