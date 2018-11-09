@@ -127,8 +127,9 @@ private:
 	uint32_t m_size;
 	Slot<T>* m_data;
 
-	uint32_t m_first_object;
-	uint32_t m_last_object;
+	Slot<T>* m_begin;
+	Slot<T>* m_end;
+
 	uint32_t m_first_free_slot;
 	uint32_t m_last_free_slot;
 
@@ -145,18 +146,15 @@ inline ObjectPool<T>::ObjectPool(uint32_t size) :
 	m_allocated_size(0),
 	m_size(0),
 	m_data(nullptr),
-	m_first_object(0),
-	m_last_object(0),
+	m_begin(nullptr),
+	m_end(nullptr),
 	m_first_free_slot(0),
 	m_last_free_slot(0)
 {
-	reserveMemory(size);
+	reserveMemory(size+2);
 
-	if (size)
-	{
-		m_first_object = 0;
-		m_last_object  = 0;
-	}
+	m_begin = &m_data[0];
+	m_end   = &m_data[size + 1];
 }
 
 template<class T>
