@@ -77,6 +77,11 @@ public:
 		m_data_ptr(data)
 	{}
 
+	uint32_t index() const
+	{
+		return m_index;
+	}
+
 	T& operator*()
 	{
 		return m_data_ptr[m_index-1].object();
@@ -89,7 +94,14 @@ public:
 
 	void operator++()
 	{
+		if (m_index == 2)
+			std::cout << "STOP" << std::endl;
 		m_index = m_data_ptr[m_index - 1].next();
+	}
+
+	void operator--()
+	{
+		m_index = m_data_ptr[m_index - 1].prev();
 	}
 
 	template<class T>
@@ -141,6 +153,7 @@ private:
 	void reserveMemory(uint32_t size);
 
 	Slot<T>& getFirstSlot();
+	void freeSlot(Slot<T>& slot);
 
 	void insertAfter(Slot<T>& new_slot, Slot<T>& slot);
 	void insertBefore(Slot<T>& new_slot, Slot<T>& slot);
@@ -159,8 +172,8 @@ inline ObjectPool<T>::ObjectPool(uint32_t size) :
 {
 	reserveMemory(size+2);
 
-	m_end = &m_data[1];
 	m_first_free_slot = m_end->m_next;
+	m_end->m_next = 0;
 }
 
 template<class T>
@@ -172,8 +185,6 @@ inline uint32_t ObjectPool<T>::add(const T& object)
 
 	// Insert new
 	insertBefore(new_object, *m_end);
-
-	m_data[m_size+2].object() = object;
 
 	++m_size;
 
@@ -198,27 +209,13 @@ inline uint32_t ObjectPool<T>::size() const
 template<class T>
 inline void ObjectPool<T>::remove(PoolIterator<T>& it)
 {
+	// Cannot remove BEGIN or END
+	if (it.m_index < 3) return;
+
 	Slot<T>& slot = m_data[it.m_index - 1];
 	it.m_index = slot.m_prev;
 
-	m_data[slot.m_prev - 1].m_next = slot.m_next;
-	m_data[slot.m_next - 1].m_prev = slot.m_prev;
-
-	// Destroy object
-	slot.m_object.~T();
-
-	// NEXT TODO
-	if (!m_last_free_slot)
-	{
-		m_first_free_slot = slot.m_index;
-		slot.m_next = 0;
-	}
-	else
-	{
-		insertAfter(slot, m_data[m_last_free_slot - 1]);
-	}
-
-	m_last_free_slot = slot.m_index;
+	freeSlot(slot);
 }
 
 template<class T>
@@ -268,6 +265,7 @@ inline void ObjectPool<T>::reserveMemory(uint32_t size)
 	if (new_data_ptr)
 	{
 		m_data = new_data_ptr;
+		m_end = &m_data[1];
 
 		// Link slots together
 		// Init first slot and connect it with last free
@@ -301,4 +299,26 @@ inline Slot<T>& ObjectPool<T>::getFirstSlot()
 	m_first_free_slot = slot.next();
 
 	return slot;
+}
+
+template<class T>
+inline void ObjectPool<T>::freeSlot(Slot<T>& slot)
+{
+	m_data[slot.m_prev - 1].m_next = slot.m_next;
+	m_data[slot.m_next - 1].m_prev = slot.m_prev;
+
+	// Destroy object
+	slot.m_object.~T();
+
+	if (!m_last_free_slot)
+	{
+		m_first_free_slot = slot.m_index;
+		slot.m_next = 0;
+	}
+	else
+	{
+		insertAfter(slot, m_data[m_last_free_slot - 1]);
+	}
+
+	m_last_free_slot = slot.m_index;
 }
