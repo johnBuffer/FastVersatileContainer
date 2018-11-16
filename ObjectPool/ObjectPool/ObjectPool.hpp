@@ -153,8 +153,8 @@ private:
 	void reserveMemory(uint32_t size);
 
 	Slot<T>& getFirstSlot();
-	void freeSlot(Slot<T>& slot);
 
+	void freeSlot(Slot<T>& slot);
 	void insertAfter(Slot<T>& new_slot, Slot<T>& slot);
 	void insertBefore(Slot<T>& new_slot, Slot<T>& slot);
 };
@@ -255,7 +255,7 @@ inline PoolIterator<T> ObjectPool<T>::begin()
 template<class T>
 inline PoolIterator<T> ObjectPool<T>::end()
 {
-	return PoolIterator<T>(m_end->m_index, m_data);
+	return PoolIterator<T>(2, nullptr);
 }
 
 template<class T>
@@ -321,4 +321,5 @@ inline void ObjectPool<T>::freeSlot(Slot<T>& slot)
 	}
 
 	m_last_free_slot = slot.m_index;
+	--m_size;
 }

@@ -11,6 +11,15 @@ struct TestStruct
 {
 	double ddd[20];
 
+	TestStruct()
+	{
+	}
+
+	TestStruct(int)
+	{
+		ddd[1] = rand() % 10000;
+	}
+
 	void increaseA()
 	{
 		ddd[0]++;
@@ -61,10 +70,11 @@ struct Challenge
 		}
 
 		std::sort(competitors.begin(), competitors.end(), [=](const Competitor& c1, const Competitor& c2) {return c1.score < c2.score; });
+		double min = competitors[0].score;
 
 		for (Competitor& competitor : competitors)
 		{
-			std::cout << "  " << competitor.name << ": " << competitor.score * 0.000001 << "ms" << std::endl;
+			std::cout << "  " << competitor.name << ": " << competitor.score * 0.000001 << "ms (" << int(competitor.score / min * 100) << " %)" << std::endl;
 		}
 	}
 };
@@ -96,51 +106,87 @@ struct Benchmark
 
 
 // Functions
-void poolAdd(ObjectPool<TestStruct>& pool, uint32_t add_count)
+void poolAdd(ObjectPool<TestStruct>* pool, uint32_t add_count)
 {
+	srand(0);
 	for (int i(add_count); i--;)
 	{
-		pool.add(TestStruct()); 
+		pool->add(TestStruct(0)); 
 	}
 }
 
-void vecAdd(std::vector<TestStruct>& vec, uint32_t add_count)
+void vecAdd(std::vector<TestStruct>* vec, uint32_t add_count)
 {
+	srand(0);
 	for (int i(add_count); i--;)
 	{
-		vec.push_back(TestStruct());
+		vec->push_back(TestStruct(0));
 	}
 }
 
-void listAdd(std::list<TestStruct>& list, uint32_t add_count)
+void listAdd(std::list<TestStruct>* list, uint32_t add_count)
 {
+	srand(0);
 	for (int i(add_count); i--;)
 	{
-		list.push_back(TestStruct());
+		list->push_back(TestStruct(0));
 	}
 }
 
-void poolIter(ObjectPool<TestStruct>& pool)
+void poolIter(ObjectPool<TestStruct>* container)
 {
-	for (TestStruct& ts : pool)
+	for (TestStruct& ts : *container)
 	{
 		ts.increaseA();
 	}
 }
 
-void vecIter(std::vector<TestStruct>& pool)
+void vecIter(std::vector<TestStruct>* container)
 {
-	for (TestStruct& ts : pool)
+	for (TestStruct& ts : *container)
 	{
 		ts.increaseA();
 	}
 }
 
-void listIter(std::list <TestStruct>& pool)
+void listIter(std::list <TestStruct>* container)
 {
-	for (TestStruct& ts : pool)
+	for (TestStruct& ts : *container)
 	{
 		ts.increaseA();
+	}
+}
+
+void poolDel(ObjectPool<TestStruct>* container)
+{
+	for (auto it(container->begin()); it != container->end(); ++it) {
+		if (it->ddd[1] == 0) {
+			container->remove(it);	
+		}
+	}
+}
+
+void vecDel(std::vector<TestStruct>* container)
+{
+	for (auto it(container->begin()); it != container->end(); ) {
+		if (it->ddd[1] == 0) {
+			it = container->erase(it);
+		}
+		else {
+			++it;
+		}
+	}
+}
+
+void listDel(std::list<TestStruct>* container)
+{
+	for (auto it(container->begin()); it != container->end(); ) {
+		if (it->ddd[1] == 0) {
+			it = container->erase(it);
+		}
+		else {
+			++it;
+		}
 	}
 }
 
@@ -150,25 +196,28 @@ int main()
 	std::vector<TestStruct> vec;
 	std::list<TestStruct> list;
 	
-	std::chrono::steady_clock::time_point begin;
-	std::chrono::steady_clock::time_point end;
-	double duration;
-	
 	Benchmark bench {
-		1,
+		2,
 		{
 			{"Insertion",
 				{
-					{"Pool", std::bind(poolAdd, pool, 1000000)},
-					{"Vector", std::bind(vecAdd, vec, 1000000)},
-					{"List", std::bind(listAdd, list, 1000000)}
+					{"Pool", std::bind(poolAdd,  &pool, 1000000)},
+					{"Vector", std::bind(vecAdd, &vec,  1000000)},
+					{"List", std::bind(listAdd,  &list, 1000000)}
 				}
 			},
 			{"Iteration",
 				{
-					{"Pool", std::bind(poolIter, pool)},
-					{"Vector", std::bind(vecIter, vec)},
-					{"List", std::bind(listIter, list)}
+					{"Pool", std::bind(poolIter,  &pool)},
+					{"Vector", std::bind(vecIter, &vec)},
+					{"List", std::bind(listIter,  &list)}
+				}
+			},
+			{"Deletion",
+				{
+					{"Pool", std::bind(poolDel,  &pool)},
+					{"Vector", std::bind(vecDel, &vec)},
+					{"List", std::bind(listDel,  &list)}
 				}
 			}
 		}
