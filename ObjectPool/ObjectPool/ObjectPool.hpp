@@ -13,6 +13,7 @@ class Slot
 {
 public:
 	template<class> friend class ObjectPool;
+	template<class> friend class PoolIterator;
 
 	Slot() :
 		m_object(),
@@ -28,28 +29,6 @@ public:
 		m_next(next)
 	{}
 
-	Slot(const T& object, uint32_t index, uint32_t prev, uint32_t next) :
-		m_object(object),
-		m_index(index),
-		m_prev(prev),
-		m_next(next)
-	{}
-
-	uint32_t index()
-	{
-		return m_index;
-	}
-
-	uint32_t next() const
-	{
-		return m_next;
-	}
-
-	uint32_t prev() const
-	{
-		return m_prev;
-	}
-
 	T& object()
 	{
 		return m_object;
@@ -61,6 +40,8 @@ private:
 	uint32_t m_prev;
 	uint32_t m_next;
 
+	// Fast iteration
+	uint32_t m_offset_next;
 };
 
 
@@ -74,7 +55,8 @@ public:
 
 	PoolIterator(uint32_t index, Slot<T>* data) :
 		m_index(index),
-		m_data_ptr(data)
+		m_data_ptr(data),
+		m_current_object(&data[index-1])
 	{}
 
 	uint32_t index() const
@@ -84,22 +66,24 @@ public:
 
 	T& operator*()
 	{
-		return m_data_ptr[m_index-1].object();
+		return m_data_ptr[m_index - 1].m_object;
 	}
 
 	T* operator->()
 	{
-		return &m_data_ptr[m_index - 1].object();
+		return &m_data_ptr[m_index - 1].m_object;
 	}
 
 	void operator++()
 	{
-		m_index = m_data_ptr[m_index - 1].next();
+		//m_index = m_current_object->m_next;
+		//m_current_object = &m_data_ptr[m_index - 1];
+		m_index = m_data_ptr[m_index - 1].m_next;
 	}
 
 	void operator--()
 	{
-		m_index = m_data_ptr[m_index - 1].prev();
+		m_index = m_data_ptr[m_index - 1].m_prev;
 	}
 
 	template<class T>
@@ -108,6 +92,7 @@ public:
 private:
 	uint32_t m_index;
 	Slot<T>* m_data_ptr;
+	Slot<T>* m_current_object;
 };
 
 template<class T>
@@ -294,7 +279,7 @@ inline Slot<T>& ObjectPool<T>::getFirstSlot()
 	}
 
 	Slot<T>& slot = m_data[m_first_free_slot-1];
-	m_first_free_slot = slot.next();
+	m_first_free_slot = slot.m_next;
 
 	return slot;
 }

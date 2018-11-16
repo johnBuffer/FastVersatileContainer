@@ -6,6 +6,7 @@
 #include <functional>
 #include <algorithm>
 #include <string>
+#include "ob_container.hpp"
 
 struct TestStruct
 {
