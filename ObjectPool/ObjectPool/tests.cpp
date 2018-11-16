@@ -197,7 +197,7 @@ int main()
 	std::list<TestStruct> list;
 	
 	Benchmark bench {
-		2,
+		1,
 		{
 			{"Insertion",
 				{
@@ -222,6 +222,10 @@ int main()
 			}
 		}
 	};
+
+	std::vector<TestStruct>::iterator it;
+	it = vec.begin();
+	it++;
 
 	bench.run();
 

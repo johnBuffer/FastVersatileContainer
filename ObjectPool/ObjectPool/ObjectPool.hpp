@@ -94,8 +94,6 @@ public:
 
 	void operator++()
 	{
-		if (m_index == 2)
-			std::cout << "STOP" << std::endl;
 		m_index = m_data_ptr[m_index - 1].next();
 	}
 
