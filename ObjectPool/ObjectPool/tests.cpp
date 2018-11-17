@@ -184,6 +184,18 @@ void poolDel(ObjectPool<TestStruct>* container)
 	}
 }
 
+void clstrDel(clstr::OffsetBasedContainer<TestStruct>* container)
+{
+	for (auto it(container->begin()); it != container->end(); ) {
+		if (it->ddd[1] == 0) {
+			container->remove(it);
+		}
+		else {
+			++it;
+		}
+	}
+}
+
 void vecDel(std::vector<TestStruct>* container)
 {
 	for (auto it(container->begin()); it != container->end(); ) {
@@ -214,16 +226,18 @@ int main()
 	clstr::OffsetBasedContainer<TestStruct> cbc;
 	std::vector<TestStruct> vec;
 	std::list<TestStruct> list;
+
+	uint32_t size = 3000000;
 	
 	Benchmark bench {
 		1,
 		{
 			{"Insertion",
 				{
-					{"Pool", std::bind(poolAdd,  &pool, 1000000)},
-					{"Cluster", std::bind(clstrAdd,  &cbc, 1000000)},
-					{"Vector", std::bind(vecAdd, &vec,  1000000)},
-					{"List", std::bind(listAdd,  &list, 1000000)}
+					{"Pool", std::bind(poolAdd,  &pool, size)},
+					{"Cluster", std::bind(clstrAdd,  &cbc, size)},
+					{"Vector", std::bind(vecAdd, &vec,  size)},
+					{"List", std::bind(listAdd,  &list, size)}
 				}
 			},
 			{"Iteration",
@@ -237,26 +251,44 @@ int main()
 			{"Deletion",
 				{
 					{"Pool", std::bind(poolDel,  &pool)},
+					{"Cluster", std::bind(clstrDel,  &cbc)},
 					{"Vector", std::bind(vecDel, &vec)},
 					{"List", std::bind(listDel,  &list)}
 				}
-			}
+			},
+			{"Iteration 2",
+				{
+					{"Pool", std::bind(poolIter,  &pool)},
+					{"Cluster", std::bind(clstrIter,  &cbc)},
+					{"Vector", std::bind(vecIter, &vec)},
+					{"List", std::bind(listIter,  &list)}
+				}
+			},
 		}
 	};
 
 	bench.run();
 
 	std::cout << "Size" << std::endl;
-	std::cout << "Vector " << sizeof(vec) << std::endl;
-	std::cout << "List " << sizeof(list) << std::endl;
-	std::cout << "Pool " << sizeof(pool) << std::endl;
-	std::cout << "Cluster " <<  sizeof(cbc) << std::endl;
+	std::cout << "Vector " << vec.size() << std::endl;
+	std::cout << "List " << list.size() << std::endl;
+	std::cout << "Pool " << pool.size() << std::endl;
+	std::cout << "Cluster " <<  cbc.size() << std::endl;
 
 
 	/*clstr::OffsetBasedContainer<int> clc;
-	for (int i(0); i < 1000000; ++i)
+	for (int i(0); i < 100; ++i)
 	{
 		clc.add(i);
+	}
+
+	for (auto it = clc.begin(); it != clc.end();)
+	{
+		if (*it % 5 == 0)
+		//if (*it == 5)
+			clc.remove(it);
+		else
+			++it;
 	}
 
 	for (int& i : clc)

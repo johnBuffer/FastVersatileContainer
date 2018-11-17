@@ -18,7 +18,6 @@ public:
 	friend class OffsetBasedContainer;
 
 	SlotCluster(uint32_t first, uint32_t last, bool free = true) :
-		m_free(free),
 		m_frst(first),
 		m_last(last),
 		m_next(nullptr),
@@ -27,12 +26,10 @@ public:
 
 	uint32_t size() const
 	{
-		return m_last - m_frst;
+		return m_last - m_frst + 1;
 	}
 
 private:
-	bool m_free;
-
 	uint32_t m_frst;
 	uint32_t m_last;
 
@@ -76,6 +73,8 @@ class Iterator
 public:
 	template<class T>
 	friend bool operator!=(const Iterator<T>&, const Iterator<T>&);
+	template<class>
+	friend class OffsetBasedContainer;
 
 	Iterator(uint32_t index, Slot<T>* data_ptr):
 		m_index(index),
@@ -90,6 +89,11 @@ public:
 		return m_data_ptr[m_index].m_object;
 	}
 
+	T* operator->()
+	{
+		return &m_data_ptr[m_index].m_object;
+	}
+
 	void operator++()
 	{
 		if (m_index < m_cluster_end)
@@ -98,16 +102,19 @@ public:
 		}
 		else
 		{
-			SlotCluster* next = m_data_ptr[m_index].m_cluster->m_next;
-			if (next && next->m_next)
+			SlotCluster* curt = m_data_ptr[m_index].m_cluster;
+			SlotCluster* next = curt->m_next;
+			if (next)
 			{
-				m_index       = next->m_next->m_frst;
-				m_cluster_end = next->m_next->m_last;
+				if (next->m_next)
+				{
+					m_index = next->m_next->m_frst;
+					m_cluster_end = next->m_next->m_last;
+					return;
+				}
 			}
-			else
-			{
-				m_index = std::numeric_limits<uint32_t>::max();
-			}
+			
+			m_index = std::numeric_limits<uint32_t>::max();
 		}
 	}
 
@@ -153,10 +160,12 @@ private:
 	SlotCluster* m_first_objt;
 
 	void allocateMemory();
-	void createFreeCluster();
 	void createObjtCluster();
 	void removeCluster(SlotCluster* cluster);
 	void fuseClusters(SlotCluster* host_cluster, SlotCluster* cluster);
+	void splitCluster(SlotCluster* cluster, uint32_t around_index);
+	void insertClusterBefore(SlotCluster* cluster, SlotCluster* before);
+	void insertClusterAfter(SlotCluster* cluster, SlotCluster* after);
 };
 
 template<class T>
@@ -166,10 +175,7 @@ inline OffsetBasedContainer<T>::OffsetBasedContainer() :
 	m_slots_head(nullptr),
 	m_first_free(nullptr),
 	m_first_objt(nullptr)
-{
-	createFreeCluster();
-	m_slots_head = m_first_free;
-}
+{}
 
 template<class T>
 inline void OffsetBasedContainer<T>::add(const T& object)
@@ -219,6 +225,8 @@ inline void OffsetBasedContainer<T>::remove(Iterator<T>& it)
 	if (index == std::numeric_limits<uint32_t>::max())
 		return;
 
+	++it;
+
 	Slot<T>& slot        = m_data[index];
 	SlotCluster& cluster = *slot.m_cluster;
 
@@ -232,18 +240,62 @@ inline void OffsetBasedContainer<T>::remove(Iterator<T>& it)
 		if (cluster.m_prev)
 		{
 			++(cluster.m_prev->m_last);
+			++(cluster.m_frst);
+
 			slot.m_cluster = cluster.m_prev;
 		}
 		// Else create new free cluster
 		else
 		{
 			SlotCluster* new_cluster = new SlotCluster(index, index);
-			// Connect it with the previous clusterz
+			// Connect it with the previous cluster
 			new_cluster->m_next = &cluster;
 			cluster.m_prev      = new_cluster;
 			m_first_free        = new_cluster;
 		}
 	}
+	else if (index == cluster.m_last)
+	{
+		// If previous cluster, add to it
+		if (cluster.m_next)
+		{
+			--(cluster.m_next->m_frst);
+			--(cluster.m_last);
+			slot.m_cluster = cluster.m_prev;
+		}
+		// Else create new free cluster
+		else
+		{
+			SlotCluster* new_cluster = new SlotCluster(index, index);
+			// Connect it with the previous cluster
+			new_cluster->m_prev = &cluster;
+			cluster.m_next = new_cluster;
+
+			if (!m_first_free)
+				m_first_free = new_cluster;
+		}
+	}
+	else
+	{
+		splitCluster(&cluster, index);
+		SlotCluster* new_cluster = m_data[index].m_cluster;
+		if (!m_first_free)
+		{
+			m_first_free = new_cluster;
+		}
+		else if (m_first_free->m_frst > index)
+		{
+			m_first_free = new_cluster;
+		}
+	}
+
+	// Remove cluster if empty
+	if (cluster.m_frst > cluster.m_last)
+	{
+		removeCluster(&cluster);
+	}
+
+	--m_size;
 }
 
 template<class T>
@@ -293,12 +345,6 @@ inline void OffsetBasedContainer<T>::allocateMemory()
 }
 
 template<class T>
-inline void OffsetBasedContainer<T>::createFreeCluster()
-{
-	
-}
-
-template<class T>
 inline void OffsetBasedContainer<T>::createObjtCluster()
 {
 	uint32_t first = m_first_free->m_frst;
@@ -308,7 +354,6 @@ inline void OffsetBasedContainer<T>::createObjtCluster()
 
 	// Debug
 	//std::cout << "[+] Create new objt cluster [" << m_first_objt->m_frst << ", " << m_first_objt->m_last << "]" << std::endl;
-
 }
 
 template<class T>
@@ -333,10 +378,6 @@ inline void OffsetBasedContainer<T>::removeCluster(SlotCluster* cluster)
 	else if (cluster->m_prev)
 	{
 		cluster->m_prev->m_next = cluster->m_next;
-		if (cluster == m_first_free)
-		{
-			m_first_free = cluster->m_next;
-		}
 	}
 	// check
 	else if (cluster->m_next)
@@ -344,10 +385,20 @@ inline void OffsetBasedContainer<T>::removeCluster(SlotCluster* cluster)
 		cluster->m_next->m_prev = cluster->m_prev;
 	}
 
+	if (cluster == m_first_free)
+	{
+		if (cluster->m_next)
+			m_first_free = cluster->m_next->m_next;
+		else
+			m_first_free = nullptr;
+	}
 	
 	else if (cluster == m_first_objt)
 	{
-		m_first_objt = nullptr;
+		if (cluster->m_next)
+			m_first_objt = cluster->m_next->m_next;
+		else
+			m_first_objt = nullptr;
 	}
 
 	delete cluster;
@@ -357,25 +408,14 @@ template<class T>
 inline void OffsetBasedContainer<T>::fuseClusters(SlotCluster* host_cluster, SlotCluster* cluster)
 {
 	// Add all cluster's slots to host_cluster
-	for (uint32_t i(cluster->m_frst); i<cluster->m_last; ++i)
+	for (uint32_t i(cluster->m_frst); i<=cluster->m_last; ++i)
 	{
 		m_data[i].m_cluster = host_cluster;
 	}
 
 	// Check if cluster is before host_cluster
-	bool reverse = cluster->m_frst < host_cluster->m_frst;
-	if (reverse)
+	if (cluster->m_frst < host_cluster->m_frst)
 	{
-		// Updates heads if needed
-		if (cluster == m_first_free)
-		{
-			m_first_free = host_cluster;
-		}
-		else if (cluster == m_first_objt)
-		{
-			m_first_objt = host_cluster;
-		}
-
 		// Update host_cluster's prev
 		host_cluster->m_prev = cluster->m_prev;
 	}
@@ -386,7 +426,101 @@ inline void OffsetBasedContainer<T>::fuseClusters(SlotCluster* host_cluster, Slo
 		host_cluster->m_next = cluster->m_next;
 	}
 
+	// Updates heads if needed
+	if (cluster == m_first_free)
+	{
+		m_first_free = host_cluster;
+	}
+	else if (cluster == m_first_objt)
+	{
+		m_first_objt = host_cluster;
+	}
+
 	delete cluster;
+}
+
+template<class T>
+inline void OffsetBasedContainer<T>::splitCluster(SlotCluster* cluster, uint32_t around_index)
+{
+	uint32_t frst = cluster->m_frst;
+	uint32_t last = cluster->m_last;
+
+	SlotCluster* new_objt_cluster = new SlotCluster(0, 0);
+	SlotCluster* new_free_cluster = new SlotCluster(around_index, around_index);
+
+	if (around_index - frst < last - around_index)
+	{
+		new_objt_cluster->m_frst = frst;
+		new_objt_cluster->m_last = around_index - 1;
+		cluster->m_frst = around_index + 1;
+
+		/*new_objt_cluster->m_next = new_free_cluster;
+		new_objt_cluster->m_prev = cluster->m_prev;
+
+		new_free_cluster->m_next = cluster;
+		new_free_cluster->m_prev = new_objt_cluster;
+
+		cluster->m_prev = new_free_cluster;*/
+
+		insertClusterBefore(new_objt_cluster, cluster);
+		insertClusterBefore(new_free_cluster, cluster);
+
+		if (cluster == m_first_objt)
+			m_first_objt = new_objt_cluster;
+	}
+	else
+	{
+		new_objt_cluster->m_frst = around_index + 1;
+		new_objt_cluster->m_last = last;
+
+		/*new_objt_cluster->m_next = cluster->m_next;
+		new_objt_cluster->m_prev = new_free_cluster;
+
+		new_free_cluster->m_next = new_objt_cluster;
+		new_free_cluster->m_prev = cluster;
+
+		cluster->m_next = new_free_cluster;*/
+
+		insertClusterAfter(new_objt_cluster, cluster);
+		insertClusterAfter(new_free_cluster, cluster);
+
+		cluster->m_last = around_index - 1;
+	}
+
+	m_data[around_index].m_cluster = new_free_cluster;
+
+	for (uint32_t i(new_objt_cluster->m_frst); i <= new_objt_cluster->m_last; ++i)
+	{
+		m_data[i].m_cluster = new_objt_cluster;
+	}
+}
+
+template<class T>
+inline void OffsetBasedContainer<T>::insertClusterBefore(SlotCluster* cluster, SlotCluster* before)
+{
+	if (before->m_prev)
+	{
+		before->m_prev->m_next = cluster;
+	}
+
+	cluster->m_prev = before->m_prev;
+	cluster->m_next = before;
+
+	before->m_prev = cluster;
+}
+
+template<class T>
+inline void OffsetBasedContainer<T>::insertClusterAfter(SlotCluster* cluster, SlotCluster* after)
+{
+	if (after->m_next)
+	{
+		after->m_next->m_prev = cluster;
+	}
+
+	cluster->m_prev = after;
+	cluster->m_next = after->m_next;
+
+	after->m_next = cluster;
 }
 
 
