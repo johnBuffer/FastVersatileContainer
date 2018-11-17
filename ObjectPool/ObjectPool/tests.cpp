@@ -16,9 +16,10 @@ struct TestStruct
 	{
 	}
 
-	TestStruct(int)
+	TestStruct(int i)
 	{
 		ddd[1] = rand() % 10000;
+		ddd[2] = i;
 	}
 
 	void increaseA()
@@ -105,14 +106,13 @@ struct Benchmark
 };
 
 
-
 // Functions
 void poolAdd(ObjectPool<TestStruct>* pool, uint32_t add_count)
 {
 	srand(0);
 	for (int i(add_count); i--;)
 	{
-		pool->add(TestStruct(0)); 
+		pool->add(TestStruct(i)); 
 	}
 }
 
@@ -121,7 +121,7 @@ void clstrAdd(clstr::OffsetBasedContainer<TestStruct>* pool, uint32_t add_count)
 	srand(0);
 	for (int i(add_count); i--;)
 	{
-		pool->add(TestStruct(0));
+		pool->add(TestStruct(i));
 	}
 }
 
@@ -130,7 +130,7 @@ void vecAdd(std::vector<TestStruct>* vec, uint32_t add_count)
 	srand(0);
 	for (int i(add_count); i--;)
 	{
-		vec->push_back(TestStruct(0));
+		vec->push_back(TestStruct(i));
 	}
 }
 
@@ -139,7 +139,7 @@ void listAdd(std::list<TestStruct>* list, uint32_t add_count)
 	srand(0);
 	for (int i(add_count); i--;)
 	{
-		list->push_back(TestStruct(0));
+		list->push_back(TestStruct(i));
 	}
 }
 
@@ -246,13 +246,20 @@ int main()
 
 	bench.run();
 
+	std::cout << "Size" << std::endl;
+	std::cout << "Vector " << sizeof(vec) << std::endl;
+	std::cout << "List " << sizeof(list) << std::endl;
+	std::cout << "Pool " << sizeof(pool) << std::endl;
+	std::cout << "Cluster " <<  sizeof(cbc) << std::endl;
+
+
 	/*clstr::OffsetBasedContainer<int> clc;
-	for (int i(0); i < 10; ++i)
+	for (int i(0); i < 1000000; ++i)
 	{
 		clc.add(i);
 	}
 
-	for (int i : clc)
+	for (int& i : clc)
 	{
 		std::cout << i << std::endl;
 	}*/

@@ -130,13 +130,17 @@ public:
 	OffsetBasedContainer();
 
 	void add(const T& object);
+	void remove(Iterator<T>& it);
 
 	Iterator<T> begin();
 	Iterator<T> end();
 
+	uint32_t size() const;
+
 private:
 	// Data info
 	uint32_t m_size;
+	uint32_t m_allocated;
 	Slot<T>* m_data; 
 
 	SlotCluster* m_slots_head;
@@ -151,6 +155,7 @@ private:
 template<class T>
 inline OffsetBasedContainer<T>::OffsetBasedContainer() :
 	m_size(0),
+	m_allocated(0),
 	m_slots_head(nullptr),
 	m_first_free(nullptr),
 	m_first_objt(nullptr)
@@ -195,18 +200,52 @@ inline void OffsetBasedContainer<T>::add(const T& object)
 	}
 
 	slot.m_object = object;
+
+	++m_size;
+}
+
+template<class T>
+inline void OffsetBasedContainer<T>::remove(Iterator<T>& it)
+{
+	uint32_t index       = it.m_index;
+
+	if (index == std::numeric_limits<uint32_t>::max())
+		return;
+
+	Slot<T>& slot        = m_data[index];
+	SlotCluster& cluster = *slot.m_cluster;
+
+	// Destroy the object
+	slot.m_object.~T();
+
+	// The slot is the first 
+	if (index == cluster.m_frst)
+	{
+		if (cluster.m_prev)
+		{
+			++(cluster.m_prev->m_last);
+		}
+	}
 }
 
 template<class T>
 inline Iterator<T> OffsetBasedContainer<T>::begin()
 {
-	return Iterator<T>(m_first_objt->m_frst, m_data);
+	if (m_first_objt)
+		return Iterator<T>(m_first_objt->m_frst, m_data);
+	return end();
 }
 
 template<class T>
 inline Iterator<T> OffsetBasedContainer<T>::end()
 {
 	return Iterator<T>(std::numeric_limits<uint32_t>::max(), nullptr);
+}
+
+template<class T>
+inline uint32_t OffsetBasedContainer<T>::size() const
+{
+	return m_size;
 }
 
 template<class T>
@@ -229,12 +268,10 @@ inline void OffsetBasedContainer<T>::createFreeCluster()
 	}
 
 	// Debug
-#ifdef DEBUG
-	std::cout << "[+] Create new free cluster [" << m_first_free->m_frst << ", " << m_first_free->m_last << "]" << std::endl;
-#endif
+	//std::cout << "[+] Create new free cluster [" << m_first_free->m_frst << ", " << m_first_free->m_last << "]" << std::endl;
 
 	// Update size
-	m_size = new_size;
+	m_allocated = new_size;
 }
 
 template<class T>
@@ -246,17 +283,14 @@ inline void OffsetBasedContainer<T>::createObjtCluster()
 	m_first_free->m_prev = m_first_objt;
 
 	// Debug
-#ifdef DEBUG
-	std::cout << "[+] Create new objt cluster [" << m_first_objt->m_frst << ", " << m_first_objt->m_last << "]" << std::endl;
-#endif
+	//std::cout << "[+] Create new objt cluster [" << m_first_objt->m_frst << ", " << m_first_objt->m_last << "]" << std::endl;
+
 }
 
 template<class T>
 inline void OffsetBasedContainer<T>::removeCluster(SlotCluster* cluster)
 {
-#ifdef DEBUG
-	std::cout << "[-] Removed cluster [" << cluster->m_frst << ", " << cluster->m_last << "]" << std::endl;
-#endif
+	//std::cout << "[-] Removed cluster [" << cluster->m_frst << ", " << cluster->m_last << "]" << std::endl;
 
 	if (cluster->m_prev)
 	{
@@ -271,6 +305,11 @@ inline void OffsetBasedContainer<T>::removeCluster(SlotCluster* cluster)
 	if (cluster == m_first_free)
 	{
 		m_first_free = nullptr;
+	}
+
+	if (cluster == m_first_objt)
+	{
+		m_first_objt = nullptr;
 	}
 
 	delete cluster;
