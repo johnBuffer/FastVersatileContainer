@@ -116,6 +116,15 @@ void poolAdd(ObjectPool<TestStruct>* pool, uint32_t add_count)
 	}
 }
 
+void clstrAdd(clstr::OffsetBasedContainer<TestStruct>* pool, uint32_t add_count)
+{
+	srand(0);
+	for (int i(add_count); i--;)
+	{
+		pool->add(TestStruct(0));
+	}
+}
+
 void vecAdd(std::vector<TestStruct>* vec, uint32_t add_count)
 {
 	srand(0);
@@ -135,6 +144,14 @@ void listAdd(std::list<TestStruct>* list, uint32_t add_count)
 }
 
 void poolIter(ObjectPool<TestStruct>* container)
+{
+	for (TestStruct& ts : *container)
+	{
+		ts.increaseA();
+	}
+}
+
+void clstrIter(clstr::OffsetBasedContainer<TestStruct>* container)
 {
 	for (TestStruct& ts : *container)
 	{
@@ -194,6 +211,7 @@ void listDel(std::list<TestStruct>* container)
 int main()
 {	
 	ObjectPool<TestStruct> pool;
+	clstr::OffsetBasedContainer<TestStruct> cbc;
 	std::vector<TestStruct> vec;
 	std::list<TestStruct> list;
 	
@@ -203,6 +221,7 @@ int main()
 			{"Insertion",
 				{
 					{"Pool", std::bind(poolAdd,  &pool, 1000000)},
+					{"Cluster", std::bind(clstrAdd,  &cbc, 1000000)},
 					{"Vector", std::bind(vecAdd, &vec,  1000000)},
 					{"List", std::bind(listAdd,  &list, 1000000)}
 				}
@@ -210,6 +229,7 @@ int main()
 			{"Iteration",
 				{
 					{"Pool", std::bind(poolIter,  &pool)},
+					{"Cluster", std::bind(clstrIter,  &cbc)},
 					{"Vector", std::bind(vecIter, &vec)},
 					{"List", std::bind(listIter,  &list)}
 				}
@@ -224,117 +244,18 @@ int main()
 		}
 	};
 
-	std::vector<TestStruct>::iterator it;
-	it = vec.begin();
-	it++;
-
 	bench.run();
 
-	/*duration = std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin).count();
-	std::cout << "Time difference = " << duration / 1000000.0 << std::endl;
-
-	// Insertion
-	std::cout << "Insertion" << std::endl;
-	begin = std::chrono::steady_clock::now();
-
-
-	for (int i(1000000); i--;)
+	/*clstr::OffsetBasedContainer<int> clc;
+	for (int i(0); i < 10; ++i)
 	{
-		pool.add(TestStruct());
+		clc.add(i);
 	}
-	end = std::chrono::steady_clock::now();
 
-	duration = std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin).count();
-	std::cout << "Time difference = " << duration / 1000000.0 << std::endl;
-
-	/*begin = std::chrono::steady_clock::now();
-	for (int i(10000000); i--;)
+	for (int i : clc)
 	{
-		vec.push_back(TestStruct());
-	}
-	end = std::chrono::steady_clock::now();*/
-
-	//duration = std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin).count();
-	//std::cout << "Time difference = " << duration / 1000000.0 << std::endl;
-
-	/*begin = std::chrono::steady_clock::now();
-	for (int i(10000000); i--;)
-	{
-		list.push_back(TestStruct());
-	}
-	end = std::chrono::steady_clock::now();*/
-
-	/*duration = std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin).count();
-	std::cout << "Time difference = " << duration / 1000000.0 << std::endl;
-
-	// Deletion
-	std::cout << "\nDeletion" << std::endl;
-	uint32_t del = 0;
-	begin = std::chrono::steady_clock::now();
-	PoolIterator<TestStruct> it_pool(pool.end());
-	--it_pool;
-
-	for (it_pool; it_pool != pool.end(); ++it_pool)
-	{
-		std::cout << it_pool.index() << std::endl;
-		if (del++ % 1000 == 0)
-		{
- 			pool.remove(it_pool);
-			std::cout << it_pool.index() << std::endl << std::endl;
-		}
-	}
-	end = std::chrono::steady_clock::now();
-
-	duration = std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin).count();
-	std::cout << "Time difference = " << duration / 1000000.0 << std::endl;
-
-	del = 1;
-	begin = std::chrono::steady_clock::now();
-	std::vector<TestStruct>::iterator it_vec(vec.begin());
-	for (it_vec; it_vec != vec.end(); ++it_vec)
-	{
-		if (del++ % 10000 == 0)
-		{
-			vec.erase(it_vec);
-		}
-	}
-	end = std::chrono::steady_clock::now();
-
-	duration = std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin).count();
-	std::cout << "Time difference = " << duration / 1000000.0 << std::endl;
-
-	// Iteration
-	std::cout << "\nIteration" << std::endl;
-	begin = std::chrono::steady_clock::now();
-	for (TestStruct& i : pool)
-	{
-		i.increaseA();
-	}
-	end = std::chrono::steady_clock::now();
-	
-	duration = std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin).count();
-	std::cout << "Time difference = " << duration / 1000000.0 << std::endl;
-
-
-	begin = std::chrono::steady_clock::now();
-	for (TestStruct& i : vec)
-	{
-		i.increaseA();
-	}
-	end = std::chrono::steady_clock::now();
-
-	duration = std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin).count();
-	std::cout << "Time difference = " << duration / 1000000.0 << std::endl;
-
-	begin = std::chrono::steady_clock::now();
-	for (TestStruct& i : list)
-	{
-		i.increaseA();
-	}
-	end = std::chrono::steady_clock::now();
-
-	duration = std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin).count();
-	std::cout << "Time difference = " << duration / 1000000.0 << std::endl;*/
+		std::cout << i << std::endl;
+	}*/
 	
 	return 0;
 }
