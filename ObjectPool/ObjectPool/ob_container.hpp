@@ -117,8 +117,8 @@ public:
 			SlotCluster* next = nextCluster();
 			if (next)
 			{
-				m_index = next->m_next->m_frst;
-				m_cluster_end = next->m_next->m_last;
+				m_index = next->m_frst;
+				m_cluster_end = next->m_last;
 				return;
 			}
 			
@@ -285,7 +285,7 @@ inline void FastHybridContainer<T>::remove(Iterator<T>& it)
 {
 	uint32_t index = it.m_index;
 
-	if (index == std::numeric_limits<uint32_t>::max())
+	if (index == MAX_IDX)
 		return;
 
 	++it;
@@ -299,12 +299,11 @@ inline void FastHybridContainer<T>::remove(Iterator<T>& it)
 	// The slot is the first 
 	if (index == cluster.m_frst)
 	{
+		++(cluster.m_frst);
 		// If previous cluster, add to it
 		if (cluster.m_prev)
 		{
 			++(cluster.m_prev->m_last);
-			++(cluster.m_frst);
-
 			slot.m_cluster = cluster.m_prev;
 		}
 		// Else create new free cluster
@@ -319,11 +318,11 @@ inline void FastHybridContainer<T>::remove(Iterator<T>& it)
 	}
 	else if (index == cluster.m_last)
 	{
+		--(cluster.m_last);
 		// If previous cluster, add to it
 		if (cluster.m_next)
 		{
 			--(cluster.m_next->m_frst);
-			--(cluster.m_last);
 			slot.m_cluster = cluster.m_prev;
 		}
 		// Else create new free cluster

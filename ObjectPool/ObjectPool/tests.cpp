@@ -284,8 +284,12 @@ int main()
 
 	for (auto it = clc.begin(); it != clc.end();)
 	{
-		if (*it == 0)
+		int a = *it;
+		if (a % 5 == 0)
+		{
+			std::cout << *it << std::endl;
 			clc.remove(it);
+		}
 		else
 			++it;
 	}
