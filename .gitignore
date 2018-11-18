@@ -42,3 +42,4 @@ Debug/
 *.iobj
 *.suo
 *.opendb
+ObjectPool/
