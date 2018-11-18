@@ -1,4 +1,4 @@
-# ObjectPool
+# FastVersatileContainer
 
 Hybrid object container with fast insertion, deletion and iteration. It is meant to be an efficient game oriented container *fast and versatile*
 
