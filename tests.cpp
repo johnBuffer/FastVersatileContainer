@@ -1,5 +1,4 @@
 #include <iostream>
-#include "ObjectPool.hpp"
 #include <chrono>
 #include <vector>
 #include <list>
@@ -18,7 +17,7 @@ struct TestStruct
 
 	TestStruct(int i)
 	{
-		ddd[1] = rand() % 10000;
+		ddd[1] = rand() % 100;
 		ddd[2] = i;
 	}
 
@@ -105,17 +104,6 @@ struct Benchmark
 	}
 };
 
-
-// Functions
-void poolAdd(ObjectPool<TestStruct>* pool, uint32_t add_count)
-{
-	srand(0);
-	for (int i(add_count); i--;)
-	{
-		pool->add(TestStruct(i)); 
-	}
-}
-
 void cbcAdd(fvc::Container<TestStruct>* pool, uint32_t add_count)
 {
 	srand(0);
@@ -143,14 +131,6 @@ void listAdd(std::list<TestStruct>* list, uint32_t add_count)
 	}
 }
 
-void poolIter(ObjectPool<TestStruct>* container)
-{
-	for (TestStruct& ts : *container)
-	{
-		ts.increaseA();
-	}
-}
-
 void cbcIter(fvc::Container<TestStruct>* container)
 {
 	for (TestStruct& ts : *container)
@@ -172,15 +152,6 @@ void listIter(std::list <TestStruct>* container)
 	for (TestStruct& ts : *container)
 	{
 		ts.increaseA();
-	}
-}
-
-void poolDel(ObjectPool<TestStruct>* container)
-{
-	for (auto it(container->begin()); it != container->end(); ++it) {
-		if (it->ddd[1] == 0) {
-			container->remove(it);	
-		}
 	}
 }
 
@@ -222,7 +193,6 @@ void listDel(std::list<TestStruct>* container)
 
 int main()
 {	
-	ObjectPool<TestStruct> pool;
 	fvc::Container<TestStruct> cbc;
 	std::vector<TestStruct> vec;
 	std::list<TestStruct> list;
@@ -234,73 +204,36 @@ int main()
 		{
 			{"Insertion",
 				{
-					//{"Pool", std::bind(poolAdd,  &pool, size)},
-					//{"Cluster", std::bind(cbcAdd,  &cbc, size)}
-					{"Vector", std::bind(vecAdd, &vec,  size)}
-					//{"List", std::bind(listAdd,  &list, size)}
+					{"Cluster", std::bind(cbcAdd,  &cbc, size)},
+					{"Vector", std::bind(vecAdd, &vec,  size)},
+					{"List", std::bind(listAdd,  &list, size)}
 				}
 			},
 			{"Iteration",
 				{
-					//{"Pool", std::bind(poolIter,  &pool)},
-					//{"Cluster", std::bind(cbcIter,  &cbc)}
+					{"Cluster", std::bind(cbcIter,  &cbc)},
 					{"Vector", std::bind(vecIter, &vec)},
-					//{"List", std::bind(listIter,  &list)}
+					{"List", std::bind(listIter,  &list)}
 				}
 			},
 			{"Deletion",
 				{
-					//{"Pool", std::bind(poolDel,  &pool)},
-					//{"Cluster", std::bind(cbcDel,  &cbc)}
+					{"Cluster", std::bind(cbcDel,  &cbc)},
 					{"Vector", std::bind(vecDel, &vec)},
-					//{"List", std::bind(listDel,  &list)}
+					{"List", std::bind(listDel,  &list)}
 				}
 			},
 			{"Iteration 2",
 				{
-					//{"Pool", std::bind(poolIter,  &pool)},
-					//{"Cluster", std::bind(cbcIter,  &cbc)}
+					{"Cluster", std::bind(cbcIter,  &cbc)},
 					{"Vector", std::bind(vecIter, &vec)},
-					//{"List", std::bind(listIter,  &list)}
+					{"List", std::bind(listIter,  &list)}
 				}
 			},
 		}
 	};
 
-	//bench.run();
-
-	std::cout << "Size" << std::endl;
-	std::cout << "Vector " << vec.size() << std::endl;
-	std::cout << "List " << list.size() << std::endl;
-	std::cout << "Pool " << pool.size() << std::endl;
-	std::cout << "Cluster " <<  cbc.size() << std::endl;
-
-
-	fvc::Container<int> clc;
-	for (int i(0); i < 20; ++i)
-	{
-		clc.add(i);
-	}
-
-	for (auto it = clc.begin(); it != clc.end();)
-	{
-		int a = *it;
-		if (a % 5 == 0)
-		{
-			std::cout << *it << std::endl;
-			clc.remove(it);
-		}
-		else
-			++it;
-	}
-
-	//std::sort(clc.begin(), clc.end());
-
-	std::cout << std::endl;
-	for (int& i : clc)
-	{
-		std::cout << i << std::endl;
-	}
+	bench.run();
 	
 	return 0;
 }
