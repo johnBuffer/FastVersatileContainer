@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <string>
 #include "fast_versatile_container.hpp"
+#include "ezbench.hpp"
 
 struct TestStruct
 {
@@ -17,90 +18,13 @@ struct TestStruct
 
 	TestStruct(int i)
 	{
-		ddd[1] = rand() % 100;
+		ddd[1] = rand() % 10;
 		ddd[2] = i;
 	}
 
 	void increaseA()
 	{
 		ddd[0]++;
-	}
-};
-
-struct Competitor
-{
-	std::string name;
-	std::function<void()> function;
-	double score;
-
-	template<class T>
-	Competitor(const std::string& name_, const T& function_) :
-		name(name_),
-		function(function_),
-		score(0.0)
-	{}
-
-	void run()
-	{
-		std::chrono::steady_clock::time_point begin(std::chrono::steady_clock::now());
-		std::chrono::steady_clock::time_point end;
-
-		function();
-		
-		end = std::chrono::steady_clock::now();
-		score = std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin).count();
-	}
-};
-
-struct Challenge
-{
-	std::string name;
-	std::vector<Competitor>	competitors;
-
-	Challenge(const std::string& name_, std::vector<Competitor>	competitors_) :
-		name(name_),
-		competitors(competitors_)
-	{}
-
-	void run()
-	{
-		std::cout << "-----[ " << name << " ]-----" << std::endl;
-		for (Competitor& competitor : competitors)
-		{
-			competitor.run();
-		}
-
-		std::sort(competitors.begin(), competitors.end(), [=](const Competitor& c1, const Competitor& c2) {return c1.score < c2.score; });
-		double min = competitors[0].score;
-
-		for (Competitor& competitor : competitors)
-		{
-			std::cout << "  " << competitor.name << ": " << competitor.score * 0.000001 << "ms (" << int(competitor.score / min * 100) << " %)" << std::endl;
-		}
-	}
-};
-
-struct Benchmark
-{
-	uint32_t iteration_count = 1;
-	std::vector<Challenge> challenges;
-	std::vector<double> durations;
-
-	Benchmark(uint32_t iteration_count_, const std::vector<Challenge>& challenges_) :
-		iteration_count(iteration_count_),
-		challenges(challenges_)
-	{}
-
-	void run()
-	{
-		for (uint32_t i(iteration_count); i--;)
-		{
-			for (Challenge& challenge : challenges)
-			{
-				challenge.run();
-				std::cout << std::endl;
-			}
-		}
 	}
 };
 
@@ -197,9 +121,9 @@ int main()
 	std::vector<TestStruct> vec;
 	std::list<TestStruct> list;
 
-	uint32_t size = 1000000;
+	uint32_t size = 100000;
 	
-	Benchmark bench {
+	ezb::Benchmark bench {
 		1,
 		{
 			{"Insertion",
