@@ -6,7 +6,7 @@
 #include <functional>
 #include <algorithm>
 #include <string>
-#include "ob_container.hpp"
+#include "fast_versatile_container.hpp"
 
 struct TestStruct
 {
@@ -116,7 +116,7 @@ void poolAdd(ObjectPool<TestStruct>* pool, uint32_t add_count)
 	}
 }
 
-void cbcAdd(fhc::FastHybridContainer<TestStruct>* pool, uint32_t add_count)
+void cbcAdd(fvc::Container<TestStruct>* pool, uint32_t add_count)
 {
 	srand(0);
 	for (int i(add_count); i--;)
@@ -151,7 +151,7 @@ void poolIter(ObjectPool<TestStruct>* container)
 	}
 }
 
-void cbcIter(fhc::FastHybridContainer<TestStruct>* container)
+void cbcIter(fvc::Container<TestStruct>* container)
 {
 	for (TestStruct& ts : *container)
 	{
@@ -184,7 +184,7 @@ void poolDel(ObjectPool<TestStruct>* container)
 	}
 }
 
-void cbcDel(fhc::FastHybridContainer<TestStruct>* container)
+void cbcDel(fvc::Container<TestStruct>* container)
 {
 	for (auto it(container->begin()); it != container->end(); ) {
 		if (it->ddd[1] == 0) {
@@ -223,7 +223,7 @@ void listDel(std::list<TestStruct>* container)
 int main()
 {	
 	ObjectPool<TestStruct> pool;
-	fhc::FastHybridContainer<TestStruct> cbc;
+	fvc::Container<TestStruct> cbc;
 	std::vector<TestStruct> vec;
 	std::list<TestStruct> list;
 
@@ -276,7 +276,7 @@ int main()
 	std::cout << "Cluster " <<  cbc.size() << std::endl;
 
 
-	fhc::FastHybridContainer<int> clc;
+	fvc::Container<int> clc;
 	for (int i(0); i < 20; ++i)
 	{
 		clc.add(i);
