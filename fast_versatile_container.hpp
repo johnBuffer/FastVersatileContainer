@@ -203,9 +203,11 @@ class Container
 {
 public:
 	Container();
+	~Container();
 
 	void add(const T& object);
 	void remove(Iterator<T>& it);
+	void clear();
 
 	Iterator<T> begin();
 	Iterator<T> end();
@@ -237,6 +239,12 @@ inline Container<T>::Container() :
 	m_first_free(nullptr),
 	m_first_objt(nullptr)
 {}
+
+template<class T>
+inline Container<T>::~Container()
+{
+	clear();
+}
 
 template<class T>
 inline void Container<T>::add(const T& object)
@@ -359,6 +367,29 @@ inline void Container<T>::remove(Iterator<T>& it)
 }
 
 template<class T>
+inline void Container<T>::clear()
+{
+	m_size = 0;
+	if (!m_first_free && !m_first_objt)
+		return;
+
+	// Remove all clusters
+	SlotCluster* cluster = m_data->m_cluster;
+	while (cluster)
+	{
+		SlotCluster* next = cluster->m_next;
+		delete cluster;
+		cluster = next;
+	}
+
+	// Remove all data
+	delete[] m_data;
+	m_data = nullptr;
+	m_first_free = nullptr;
+	m_first_objt = nullptr;
+}
+
+template<class T>
 inline Iterator<T> Container<T>::begin()
 {
 	if (m_first_objt)
@@ -383,23 +414,16 @@ inline void Container<T>::allocateMemory()
 {
 	// Compute new size
 	uint32_t new_size = m_size ? (m_size << 1) : 1;
-
 	// Allocate memory
 	m_data = static_cast<Slot<T>*>(realloc(m_data, new_size * sizeof(Slot<T>)));
-
 	// Create the cluster
 	m_first_free = new SlotCluster(m_size, new_size - 1);
 	m_first_free->m_prev = m_first_objt;
-
 	// Initialize new cluster
 	for (uint32_t i(m_size); i < new_size; ++i)
 	{
 		m_data[i].m_cluster = m_first_free;
 	}
-
-	// Debug
-	//std::cout << "[+] Create new free cluster [" << m_first_free->m_frst << ", " << m_first_free->m_last << "]" << std::endl;
-
 	// Update size
 	m_allocated = new_size;
 }

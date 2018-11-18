@@ -18,7 +18,7 @@ struct TestStruct
 
 	TestStruct(int i)
 	{
-		ddd[1] = rand() % 10;
+		ddd[1] = rand() % 10000;
 		ddd[2] = i;
 	}
 
@@ -57,8 +57,10 @@ void listAdd(std::list<TestStruct>* list, uint32_t add_count)
 
 void cbcIter(fvc::Container<TestStruct>* container)
 {
+	uint32_t i(0);
 	for (TestStruct& ts : *container)
 	{
+		++i;
 		ts.increaseA();
 	}
 }
@@ -121,7 +123,7 @@ int main()
 	std::vector<TestStruct> vec;
 	std::list<TestStruct> list;
 
-	uint32_t size = 100000;
+	uint32_t size = 1000000;
 	
 	ezb::Benchmark bench {
 		1,
@@ -140,13 +142,13 @@ int main()
 					{"List", std::bind(listIter,  &list)}
 				}
 			},
-			{"Deletion",
+			/*{"Deletion",
 				{
 					{"Cluster", std::bind(cbcDel,  &cbc)},
-					{"Vector", std::bind(vecDel, &vec)},
+					//{"Vector", std::bind(vecDel, &vec)},
 					{"List", std::bind(listDel,  &list)}
 				}
-			},
+			},*/
 			{"Iteration 2",
 				{
 					{"Cluster", std::bind(cbcIter,  &cbc)},
