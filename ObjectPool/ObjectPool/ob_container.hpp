@@ -5,9 +5,10 @@
 #include <iostream>
 #include <string>
 
-namespace clstr
+namespace fhc
 {
 
+constexpr uint32_t MAX_IDX(std::numeric_limits<uint32_t>::max());
 
 class SlotCluster
 {
@@ -15,9 +16,9 @@ public:
 	template<class>
 	friend class Iterator;
 	template<class>
-	friend class OffsetBasedContainer;
+	friend class FastHybridContainer;
 
-	SlotCluster(uint32_t first, uint32_t last, bool free = true) :
+	SlotCluster(uint32_t first, uint32_t last) :
 		m_frst(first),
 		m_last(last),
 		m_next(nullptr),
@@ -27,6 +28,23 @@ public:
 	uint32_t size() const
 	{
 		return m_last - m_frst + 1;
+	}
+	
+	// Return the next cluster of the same kind (object or free)
+	SlotCluster* nextSame() const
+	{
+		if (m_next) {
+			return m_next->m_next;
+		}
+		return nullptr;
+	}
+
+	SlotCluster* prevSame() const
+	{
+		if (m_prev) {
+			return m_prev->m_prev;
+		}
+		return nullptr;
 	}
 
 private:
@@ -46,21 +64,16 @@ class Slot
 {
 public:
 	template<class>
-	friend class OffsetBasedContainer;
+	friend class FastHybridContainer;
 	template<class>
 	friend class Iterator;
 
-	Slot();
+	Slot() = default;
 
 private:
 	T m_object;
 	SlotCluster* m_cluster;
 };
-
-template<class T>
-inline Slot<T>::Slot()
-{
-}
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -71,16 +84,15 @@ template<class T>
 class Iterator
 {
 public:
-	template<class T>
-	friend bool operator!=(const Iterator<T>&, const Iterator<T>&);
-	template<class>
-	friend class OffsetBasedContainer;
+	friend class FastHybridContainer<T>;
+	template<class T> friend bool operator!=(const Iterator<T>&, const Iterator<T>&);
+	template<class T> friend Iterator<T>& operator-(const Iterator<T>&, const Iterator<T>&);
 
 	Iterator(uint32_t index, Slot<T>* data_ptr):
 		m_index(index),
 		m_data_ptr(data_ptr)
 	{
-		if (m_index != std::numeric_limits<uint32_t>::max())
+		if (m_index != MAX_IDX)
 			m_cluster_end = data_ptr[index].m_cluster->m_last;
 	}
 
@@ -91,7 +103,7 @@ public:
 
 	T* operator->()
 	{
-		return &m_data_ptr[m_index].m_object;
+		return &(operator*());
 	}
 
 	void operator++()
@@ -102,26 +114,69 @@ public:
 		}
 		else
 		{
-			SlotCluster* curt = m_data_ptr[m_index].m_cluster;
-			SlotCluster* next = curt->m_next;
+			SlotCluster* next = nextCluster();
 			if (next)
 			{
-				if (next->m_next)
-				{
-					m_index = next->m_next->m_frst;
-					m_cluster_end = next->m_next->m_last;
-					return;
-				}
+				m_index = next->m_next->m_frst;
+				m_cluster_end = next->m_next->m_last;
+				return;
 			}
 			
-			m_index = std::numeric_limits<uint32_t>::max();
+			m_index = MAX_IDX;
 		}
+	}
+
+	void operator+=(uint32_t off)
+	{
+		uint32_t dist = off;
+		if (off > 0)
+		{
+			SlotCluster* current_cluster = operator*().m_cluster;
+			while (m_index != MAX_IDX && dist)
+			{
+				uint32_t cluster_dist_to_end = m_index - current_cluster->m_last;
+				if (dist < cluster_dist_to_end)
+				{
+					m_index += dist;
+				}
+				else
+				{
+					SlotCluster* current_cluster = nextCluster();
+					if (current_cluster)
+					{
+						m_index = current_cluster->m_frst;
+						dist -= cluster_dist_to_end + 1;
+					}
+					else
+						m_index = MAX_IDX;
+				}
+			}
+		}
+		else
+		{
+			
+		}
+	}
+
+	void operator-=(uint32_t off)
+	{
+		operator+=(-off);
 	}
 
 private:
 	uint32_t m_index;
 	uint32_t m_cluster_end;
 	Slot<T>* m_data_ptr;
+
+	SlotCluster* nextCluster()
+	{
+		return m_data_ptr[m_index].m_cluster->nextSame();
+	}
+
+	SlotCluster* prevCluster()
+	{
+		return m_data_ptr[m_index].m_cluster->prevSame();
+	}
 };
 
 
@@ -131,15 +186,23 @@ bool operator!=(const Iterator<T>& it1, const Iterator<T>& it2)
 	return it1.m_index != it2.m_index;
 }
 
+template<class T>
+Iterator<T>& operator-(const Iterator<T>& it1, const Iterator<T>& it2)
+{
+	Iterator<T> result = it1;
+	result -= it2.m_index;
+	return result;
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 template<class T>
-class OffsetBasedContainer
+class FastHybridContainer
 {
 public:
-	OffsetBasedContainer();
+	FastHybridContainer();
 
 	void add(const T& object);
 	void remove(Iterator<T>& it);
@@ -169,7 +232,7 @@ private:
 };
 
 template<class T>
-inline OffsetBasedContainer<T>::OffsetBasedContainer() :
+inline FastHybridContainer<T>::FastHybridContainer() :
 	m_size(0),
 	m_allocated(0),
 	m_slots_head(nullptr),
@@ -178,7 +241,7 @@ inline OffsetBasedContainer<T>::OffsetBasedContainer() :
 {}
 
 template<class T>
-inline void OffsetBasedContainer<T>::add(const T& object)
+inline void FastHybridContainer<T>::add(const T& object)
 {
 	// No free slots available
 	if (!m_first_free)
@@ -218,7 +281,7 @@ inline void OffsetBasedContainer<T>::add(const T& object)
 }
 
 template<class T>
-inline void OffsetBasedContainer<T>::remove(Iterator<T>& it)
+inline void FastHybridContainer<T>::remove(Iterator<T>& it)
 {
 	uint32_t index = it.m_index;
 
@@ -299,7 +362,7 @@ inline void OffsetBasedContainer<T>::remove(Iterator<T>& it)
 }
 
 template<class T>
-inline Iterator<T> OffsetBasedContainer<T>::begin()
+inline Iterator<T> FastHybridContainer<T>::begin()
 {
 	if (m_first_objt)
 		return Iterator<T>(m_first_objt->m_frst, m_data);
@@ -307,19 +370,19 @@ inline Iterator<T> OffsetBasedContainer<T>::begin()
 }
 
 template<class T>
-inline Iterator<T> OffsetBasedContainer<T>::end()
+inline Iterator<T> FastHybridContainer<T>::end()
 {
-	return Iterator<T>(std::numeric_limits<uint32_t>::max(), nullptr);
+	return Iterator<T>(MAX_IDX, nullptr);
 }
 
 template<class T>
-inline uint32_t OffsetBasedContainer<T>::size() const
+inline uint32_t FastHybridContainer<T>::size() const
 {
 	return m_size;
 }
 
 template<class T>
-inline void OffsetBasedContainer<T>::allocateMemory()
+inline void FastHybridContainer<T>::allocateMemory()
 {
 	// Compute new size
 	uint32_t new_size = m_size ? (m_size << 1) : 1;
@@ -345,22 +408,17 @@ inline void OffsetBasedContainer<T>::allocateMemory()
 }
 
 template<class T>
-inline void OffsetBasedContainer<T>::createObjtCluster()
+inline void FastHybridContainer<T>::createObjtCluster()
 {
 	uint32_t first = m_first_free->m_frst;
-	m_first_objt = new SlotCluster(first, first, false);
+	m_first_objt = new SlotCluster(first, first);
 	m_first_objt->m_next = m_first_free;
 	m_first_free->m_prev = m_first_objt;
-
-	// Debug
-	//std::cout << "[+] Create new objt cluster [" << m_first_objt->m_frst << ", " << m_first_objt->m_last << "]" << std::endl;
 }
 
 template<class T>
-inline void OffsetBasedContainer<T>::removeCluster(SlotCluster* cluster)
+inline void FastHybridContainer<T>::removeCluster(SlotCluster* cluster)
 {
-	//std::cout << "[-] Removed cluster [" << cluster->m_frst << ", " << cluster->m_last << "]" << std::endl;
-
 	// If cluster has two neighbours
 	if (cluster->m_prev && cluster->m_next)
 	{
@@ -385,54 +443,41 @@ inline void OffsetBasedContainer<T>::removeCluster(SlotCluster* cluster)
 		cluster->m_next->m_prev = cluster->m_prev;
 	}
 
-	if (cluster == m_first_free)
-	{
-		if (cluster->m_next)
-			m_first_free = cluster->m_next->m_next;
-		else
-			m_first_free = nullptr;
+	// Update heads
+	if (cluster == m_first_free) {
+		m_first_free = cluster->nextSame();
 	}
-	
-	else if (cluster == m_first_objt)
-	{
-		if (cluster->m_next)
-			m_first_objt = cluster->m_next->m_next;
-		else
-			m_first_objt = nullptr;
+	else if (cluster == m_first_objt) {
+		m_first_objt = cluster->nextSame();
 	}
 
 	delete cluster;
 }
 
 template<class T>
-inline void OffsetBasedContainer<T>::fuseClusters(SlotCluster* host_cluster, SlotCluster* cluster)
+inline void FastHybridContainer<T>::fuseClusters(SlotCluster* host_cluster, SlotCluster* cluster)
 {
 	// Add all cluster's slots to host_cluster
-	for (uint32_t i(cluster->m_frst); i<=cluster->m_last; ++i)
-	{
+	const uint32_t last = cluster->m_last;
+	for (uint32_t i(cluster->m_frst); i<=last; ++i) {
 		m_data[i].m_cluster = host_cluster;
 	}
 
 	// Check if cluster is before host_cluster
-	if (cluster->m_frst < host_cluster->m_frst)
-	{
+	if (cluster->m_frst < host_cluster->m_frst) {
 		// Update host_cluster's prev
 		host_cluster->m_prev = cluster->m_prev;
 	}
-	// If not
-	else
-	{
+	else {
 		// Update host_cluster's next
 		host_cluster->m_next = cluster->m_next;
 	}
 
 	// Updates heads if needed
-	if (cluster == m_first_free)
-	{
+	if (cluster == m_first_free) {
 		m_first_free = host_cluster;
 	}
-	else if (cluster == m_first_objt)
-	{
+	else if (cluster == m_first_objt) {
 		m_first_objt = host_cluster;
 	}
 
@@ -440,87 +485,65 @@ inline void OffsetBasedContainer<T>::fuseClusters(SlotCluster* host_cluster, Slo
 }
 
 template<class T>
-inline void OffsetBasedContainer<T>::splitCluster(SlotCluster* cluster, uint32_t around_index)
+inline void FastHybridContainer<T>::splitCluster(SlotCluster* cluster, uint32_t around_index)
 {
 	uint32_t frst = cluster->m_frst;
 	uint32_t last = cluster->m_last;
-
-	SlotCluster* new_objt_cluster = new SlotCluster(0, 0);
+	// Create the new clusters
+	SlotCluster* new_objt_cluster = new SlotCluster(frst, last);
 	SlotCluster* new_free_cluster = new SlotCluster(around_index, around_index);
-
-	if (around_index - frst < last - around_index)
-	{
-		new_objt_cluster->m_frst = frst;
+	// Check which portion is easier to update
+	// [...|........]
+	if (around_index - frst < last - around_index) {
+		// Update bounds
 		new_objt_cluster->m_last = around_index - 1;
 		cluster->m_frst = around_index + 1;
-
-		/*new_objt_cluster->m_next = new_free_cluster;
-		new_objt_cluster->m_prev = cluster->m_prev;
-
-		new_free_cluster->m_next = cluster;
-		new_free_cluster->m_prev = new_objt_cluster;
-
-		cluster->m_prev = new_free_cluster;*/
-
+		// Insert new clusters
 		insertClusterBefore(new_objt_cluster, cluster);
 		insertClusterBefore(new_free_cluster, cluster);
-
+		// Eventually update head
 		if (cluster == m_first_objt)
 			m_first_objt = new_objt_cluster;
 	}
-	else
-	{
+	// [........|...]
+	else {
 		new_objt_cluster->m_frst = around_index + 1;
-		new_objt_cluster->m_last = last;
-
-		/*new_objt_cluster->m_next = cluster->m_next;
-		new_objt_cluster->m_prev = new_free_cluster;
-
-		new_free_cluster->m_next = new_objt_cluster;
-		new_free_cluster->m_prev = cluster;
-
-		cluster->m_next = new_free_cluster;*/
-
 		insertClusterAfter(new_objt_cluster, cluster);
 		insertClusterAfter(new_free_cluster, cluster);
-
 		cluster->m_last = around_index - 1;
 	}
-
+	// Update slots' cluster
 	m_data[around_index].m_cluster = new_free_cluster;
-
-	for (uint32_t i(new_objt_cluster->m_frst); i <= new_objt_cluster->m_last; ++i)
-	{
+	const uint32_t new_last = new_objt_cluster->m_last;
+	for (uint32_t i(new_objt_cluster->m_frst); i <= new_last; ++i) {
 		m_data[i].m_cluster = new_objt_cluster;
 	}
 }
 
 template<class T>
-inline void OffsetBasedContainer<T>::insertClusterBefore(SlotCluster* cluster, SlotCluster* before)
+inline void FastHybridContainer<T>::insertClusterBefore(SlotCluster* clustr, SlotCluster* before)
 {
-	if (before->m_prev)
-	{
-		before->m_prev->m_next = cluster;
+	// If before has prev update its next
+	if (before->m_prev) {
+		before->m_prev->m_next = clustr;
 	}
-
-	cluster->m_prev = before->m_prev;
-	cluster->m_next = before;
-
-	before->m_prev = cluster;
+	// Link clusters together
+	clustr->m_prev = before->m_prev;
+	clustr->m_next = before;
+	before->m_prev = clustr;
 }
 
 template<class T>
-inline void OffsetBasedContainer<T>::insertClusterAfter(SlotCluster* cluster, SlotCluster* after)
+inline void FastHybridContainer<T>::insertClusterAfter(SlotCluster* clstr, SlotCluster* after)
 {
-	if (after->m_next)
-	{
-		after->m_next->m_prev = cluster;
+	// If after has next update its prev
+	if (after->m_next)  {
+		after->m_next->m_prev = clstr;
 	}
-
-	cluster->m_prev = after;
-	cluster->m_next = after->m_next;
-
-	after->m_next = cluster;
+	// Link clusters together
+	clstr->m_prev = after;
+	clstr->m_next = after->m_next;
+	after->m_next = clstr;
 }
 
 

@@ -116,7 +116,7 @@ void poolAdd(ObjectPool<TestStruct>* pool, uint32_t add_count)
 	}
 }
 
-void clstrAdd(clstr::OffsetBasedContainer<TestStruct>* pool, uint32_t add_count)
+void cbcAdd(fhc::FastHybridContainer<TestStruct>* pool, uint32_t add_count)
 {
 	srand(0);
 	for (int i(add_count); i--;)
@@ -151,7 +151,7 @@ void poolIter(ObjectPool<TestStruct>* container)
 	}
 }
 
-void clstrIter(clstr::OffsetBasedContainer<TestStruct>* container)
+void cbcIter(fhc::FastHybridContainer<TestStruct>* container)
 {
 	for (TestStruct& ts : *container)
 	{
@@ -184,7 +184,7 @@ void poolDel(ObjectPool<TestStruct>* container)
 	}
 }
 
-void clstrDel(clstr::OffsetBasedContainer<TestStruct>* container)
+void cbcDel(fhc::FastHybridContainer<TestStruct>* container)
 {
 	for (auto it(container->begin()); it != container->end(); ) {
 		if (it->ddd[1] == 0) {
@@ -223,11 +223,11 @@ void listDel(std::list<TestStruct>* container)
 int main()
 {	
 	ObjectPool<TestStruct> pool;
-	clstr::OffsetBasedContainer<TestStruct> cbc;
+	fhc::FastHybridContainer<TestStruct> cbc;
 	std::vector<TestStruct> vec;
 	std::list<TestStruct> list;
 
-	uint32_t size = 10000000;
+	uint32_t size = 1000000;
 	
 	Benchmark bench {
 		1,
@@ -235,7 +235,7 @@ int main()
 			{"Insertion",
 				{
 					//{"Pool", std::bind(poolAdd,  &pool, size)},
-					//{"Cluster", std::bind(clstrAdd,  &cbc, size)}
+					//{"Cluster", std::bind(cbcAdd,  &cbc, size)}
 					{"Vector", std::bind(vecAdd, &vec,  size)}
 					//{"List", std::bind(listAdd,  &list, size)}
 				}
@@ -243,7 +243,7 @@ int main()
 			{"Iteration",
 				{
 					//{"Pool", std::bind(poolIter,  &pool)},
-					//{"Cluster", std::bind(clstrIter,  &cbc)}
+					//{"Cluster", std::bind(cbcIter,  &cbc)}
 					{"Vector", std::bind(vecIter, &vec)},
 					//{"List", std::bind(listIter,  &list)}
 				}
@@ -251,7 +251,7 @@ int main()
 			{"Deletion",
 				{
 					//{"Pool", std::bind(poolDel,  &pool)},
-					//{"Cluster", std::bind(clstrDel,  &cbc)}
+					//{"Cluster", std::bind(cbcDel,  &cbc)}
 					{"Vector", std::bind(vecDel, &vec)},
 					//{"List", std::bind(listDel,  &list)}
 				}
@@ -259,7 +259,7 @@ int main()
 			{"Iteration 2",
 				{
 					//{"Pool", std::bind(poolIter,  &pool)},
-					//{"Cluster", std::bind(clstrIter,  &cbc)}
+					//{"Cluster", std::bind(cbcIter,  &cbc)}
 					{"Vector", std::bind(vecIter, &vec)},
 					//{"List", std::bind(listIter,  &list)}
 				}
@@ -267,7 +267,7 @@ int main()
 		}
 	};
 
-	bench.run();
+	//bench.run();
 
 	std::cout << "Size" << std::endl;
 	std::cout << "Vector " << vec.size() << std::endl;
@@ -276,25 +276,27 @@ int main()
 	std::cout << "Cluster " <<  cbc.size() << std::endl;
 
 
-	/*clstr::OffsetBasedContainer<int> clc;
-	for (int i(0); i < 100; ++i)
+	fhc::FastHybridContainer<int> clc;
+	for (int i(0); i < 20; ++i)
 	{
 		clc.add(i);
 	}
 
 	for (auto it = clc.begin(); it != clc.end();)
 	{
-		if (*it % 5 == 0)
-		//if (*it == 5)
+		if (*it == 0)
 			clc.remove(it);
 		else
 			++it;
 	}
 
+	//std::sort(clc.begin(), clc.end());
+
+	std::cout << std::endl;
 	for (int& i : clc)
 	{
 		std::cout << i << std::endl;
-	}*/
+	}
 	
 	return 0;
 }
