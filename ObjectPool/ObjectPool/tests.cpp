@@ -227,41 +227,41 @@ int main()
 	std::vector<TestStruct> vec;
 	std::list<TestStruct> list;
 
-	uint32_t size = 3000000;
+	uint32_t size = 10000000;
 	
 	Benchmark bench {
 		1,
 		{
 			{"Insertion",
 				{
-					{"Pool", std::bind(poolAdd,  &pool, size)},
-					{"Cluster", std::bind(clstrAdd,  &cbc, size)},
-					{"Vector", std::bind(vecAdd, &vec,  size)},
-					{"List", std::bind(listAdd,  &list, size)}
+					//{"Pool", std::bind(poolAdd,  &pool, size)},
+					//{"Cluster", std::bind(clstrAdd,  &cbc, size)}
+					{"Vector", std::bind(vecAdd, &vec,  size)}
+					//{"List", std::bind(listAdd,  &list, size)}
 				}
 			},
 			{"Iteration",
 				{
-					{"Pool", std::bind(poolIter,  &pool)},
-					{"Cluster", std::bind(clstrIter,  &cbc)},
+					//{"Pool", std::bind(poolIter,  &pool)},
+					//{"Cluster", std::bind(clstrIter,  &cbc)}
 					{"Vector", std::bind(vecIter, &vec)},
-					{"List", std::bind(listIter,  &list)}
+					//{"List", std::bind(listIter,  &list)}
 				}
 			},
 			{"Deletion",
 				{
-					{"Pool", std::bind(poolDel,  &pool)},
-					{"Cluster", std::bind(clstrDel,  &cbc)},
+					//{"Pool", std::bind(poolDel,  &pool)},
+					//{"Cluster", std::bind(clstrDel,  &cbc)}
 					{"Vector", std::bind(vecDel, &vec)},
-					{"List", std::bind(listDel,  &list)}
+					//{"List", std::bind(listDel,  &list)}
 				}
 			},
 			{"Iteration 2",
 				{
-					{"Pool", std::bind(poolIter,  &pool)},
-					{"Cluster", std::bind(clstrIter,  &cbc)},
+					//{"Pool", std::bind(poolIter,  &pool)},
+					//{"Cluster", std::bind(clstrIter,  &cbc)}
 					{"Vector", std::bind(vecIter, &vec)},
-					{"List", std::bind(listIter,  &list)}
+					//{"List", std::bind(listIter,  &list)}
 				}
 			},
 		}
