@@ -54,8 +54,11 @@ for (auto it(container->begin()); it != container->end(); )
 ## Operation speed
 
 Output of EzBench for **1 000 000 objects** of **40 Bytes** in each container
+
 Each object has a field with a random value in range 0, 10 000.
+
 Deletion test consists of removing all objects whose value is equal to 0.
+
 ```
 -----[ Insertion ]-----
 List     149.425 ms (100 % -> x1)
