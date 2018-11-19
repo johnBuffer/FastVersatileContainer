@@ -25,11 +25,12 @@ public:
 		m_prev(nullptr)
 	{}
 
+	// Return the size of the cluster
 	uint32_t size() const
 	{
 		return m_last - m_frst + 1;
 	}
-	
+
 	// Return the next cluster of the same kind (object or free)
 	SlotCluster* nextSame() const
 	{
@@ -39,6 +40,7 @@ public:
 		return nullptr;
 	}
 
+	// Return the previous cluster of the same kind (object or free)
 	SlotCluster* prevSame() const
 	{
 		if (m_prev) {
@@ -48,11 +50,8 @@ public:
 	}
 
 private:
-	uint32_t m_frst;
-	uint32_t m_last;
-
-	SlotCluster* m_next;
-	SlotCluster* m_prev;
+	uint32_t m_frst, m_last;
+	SlotCluster *m_next, *m_prev;
 };
 
 
@@ -63,10 +62,8 @@ template<class T>
 class Slot
 {
 public:
-	template<class>
-	friend class Container;
-	template<class>
-	friend class Iterator;
+	template<class> friend class Container;
+	template<class> friend class Iterator;
 
 	Slot() = default;
 
@@ -199,13 +196,44 @@ Iterator<T>& operator-(const Iterator<T>& it1, const Iterator<T>& it2)
 
 
 template<class T>
+class ObjectPtr
+{
+	template<class T>
+	class Container;
+
+public:
+	ObjectPtr(uint32_t index, Container* container) :
+		_container(container),
+		_index(index)
+	{}
+
+	T& operator*()
+	{
+		return (*_container)[_index];
+	}
+
+	T* operator->()
+	{
+		return &(operator*());
+	}
+
+private:
+	Container* _container;
+	uint32_t   _index;
+};
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+template<class T>
 class Container
 {
 public:
 	Container();
 	~Container();
 
-	void add(const T& object);
+	ObjectPtr<T> add(const T& object);
 	void remove(Iterator<T>& it);
 	void clear();
 
@@ -213,6 +241,8 @@ public:
 	Iterator<T> end();
 
 	uint32_t size() const;
+
+	T& operator[](uint32_t index);
 
 private:
 	// Data info
@@ -247,7 +277,7 @@ inline Container<T>::~Container()
 }
 
 template<class T>
-inline void Container<T>::add(const T& object)
+inline ObjectPtr<T> Container<T>::add(const T& object)
 {
 	// No free slots available
 	if (!m_first_free)
@@ -255,8 +285,9 @@ inline void Container<T>::add(const T& object)
 		allocateMemory();
 	}
 
-	Slot<T>&     slot = m_data[m_first_free->m_frst];
-	SlotCluster* prev = m_first_free->m_prev;
+	uint32_t&    index = m_first_free->m_frst;
+	Slot<T>&     slot  = m_data[index];
+	SlotCluster* prev  = m_first_free->m_prev;
 
 	// If cluster before just add the new slot in it
 	if (prev)
@@ -274,9 +305,9 @@ inline void Container<T>::add(const T& object)
 	}
 
 	// Update ranges of the free cluster
-	++(m_first_free->m_frst);
+	++(index);
 	// Check if the free cluster is now empty
-	if (m_first_free->m_frst > m_first_free->m_last)
+	if (index > m_first_free->m_last)
 	{
 		removeCluster(m_first_free);
 	}
@@ -284,6 +315,8 @@ inline void Container<T>::add(const T& object)
 	slot.m_object = object;
 
 	++m_size;
+
+	return ObjectPtr<T>(index, this);
 }
 
 template<class T>
@@ -407,6 +440,12 @@ template<class T>
 inline uint32_t Container<T>::size() const
 {
 	return m_size;
+}
+
+template<class T>
+inline T & Container<T>::operator[](uint32_t index)
+{
+	return m_data[index].m_object;
 }
 
 template<class T>
