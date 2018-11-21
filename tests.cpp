@@ -5,6 +5,7 @@
 #include <functional>
 #include <algorithm>
 #include <string>
+#include "FastVersatileArray.hpp"
 #include "fast_versatile_container.hpp"
 #include "ezbench.hpp"
 
@@ -142,13 +143,13 @@ int main()
 					{"List", std::bind(listIter,  &list)}
 				}
 			},
-			/*{"Deletion",
+			{"Deletion",
 				{
 					{"Cluster", std::bind(cbcDel,  &cbc)},
-					//{"Vector", std::bind(vecDel, &vec)},
+					{"Vector", std::bind(vecDel, &vec)},
 					{"List", std::bind(listDel,  &list)}
 				}
-			},*/
+			},
 			{"Iteration 2",
 				{
 					{"Cluster", std::bind(cbcIter,  &cbc)},
@@ -159,7 +160,29 @@ int main()
 		}
 	};
 
-	bench.run();
+	//bench.run();
+
+	FastArray<int> fa;
+
+	for (int i(0); i < 10; ++i)
+	{
+		fa.add(i);
+	}
+
+	std::cout << "9 :" << fa[9] << std::endl;
+
+	for (int i(0); i < 5; ++i)
+	{
+		fa.remove(i);
+	}
+
+	std::cout << "9 :" << fa[9] << std::endl;
+
+	for (int i : fa)
+	{
+		std::cout << i << std::endl;
+	}
+
 	
 	return 0;
 }
