@@ -2,6 +2,9 @@
 #include <vector>
 #include <list>
 
+namespace fva
+{
+
 template<class T>
 class FastArray
 {
@@ -129,3 +132,5 @@ inline void FastArray<T>::clear()
 	_reverse_index.clear();
 	_free_indexes.clear();
 }
+
+} // Namespace's end
