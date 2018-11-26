@@ -16,7 +16,11 @@ public:
 	typename std::vector<T>::iterator begin();
 	typename std::vector<T>::iterator end();
 
-	void clear();
+	typename std::vector<T>::const_iterator cbegin() const;
+	typename std::vector<T>::const_iterator cend() const;
+
+	uint32_t size() const;
+	void     clear();
 
 private:
 	std::vector<T> _data;
@@ -30,7 +34,7 @@ template<class T>
 inline uint32_t FastArray<T>::add(const T& object)
 {
 	// Compute data_index (index in _data) and init index (index for access from outside)
-	uint32_t data_index = _data.size();
+	uint32_t data_index = uint32_t(_data.size());
 	uint32_t index = data_index;
 
 	// If empty slots in _index
@@ -51,6 +55,8 @@ inline uint32_t FastArray<T>::add(const T& object)
 	// Add object and reverse index
 	_data.push_back(object);
 	_reverse_index.push_back(index);
+
+	return index;
 }
 
 template<class T>
@@ -95,4 +101,31 @@ template<class T>
 inline typename std::vector<T>::iterator FastArray<T>::end()
 {
 	return _data.end();
+}
+
+template<class T>
+inline typename std::vector<T>::const_iterator FastArray<T>::cbegin() const
+{
+	return _data.cbegin();
+}
+
+template<class T>
+inline typename std::vector<T>::const_iterator FastArray<T>::cend() const
+{
+	return _data.cend();
+}
+
+template<class T>
+inline uint32_t FastArray<T>::size() const
+{
+	return uint32_t(_data.size());
+}
+
+template<class T>
+inline void FastArray<T>::clear()
+{
+	_data.clear();
+	_index.clear();
+	_reverse_index.clear();
+	_free_indexes.clear();
 }
