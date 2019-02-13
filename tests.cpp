@@ -10,7 +10,7 @@
 
 int main()
 {	
-	FastArray<int> fa;
+	fva::FastArray<int> fa;
 
 	for (int i(0); i < 10; ++i)
 	{

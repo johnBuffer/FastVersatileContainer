@@ -26,7 +26,7 @@ public:
 	void     clear();
 
 private:
-	std::vector<T> _data;
+	std::vector<T>        _data;
 	std::vector<uint32_t> _index;
 	std::vector<uint32_t> _reverse_index;
 
