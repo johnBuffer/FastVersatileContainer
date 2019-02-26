@@ -5,22 +5,74 @@
 namespace fva
 {
 
-template<class T>
-class FastArray
+template<typename T> class SwapArray;
+
+template<typename T>
+class Handle
 {
 public:
-	FastArray() = default;
+	Handle() :
+		_index(0),
+		_source(nullptr)
+	{}
 
-	uint32_t add(const T& object);
-	void remove(uint32_t index);
+	Handle(uint32_t index, SwapArray<T>& source) :
+		_index(index),
+		_source(&source)
+	{}
+
+	operator bool() const
+	{
+		return _source;
+	}
+
+	T& operator*()
+	{
+		return (*_source)[_index];
+	}
+
+	const T& operator*() const
+	{
+		return (*_source)[_index];
+	}
+
+	T* operator->()
+	{
+		return &(this->operator*());
+	}
+
+	const T* operator->() const
+	{
+		return &(this->operator*());
+	}
+
+private:
+	uint32_t _index;
+	SwapArray<T>* _source;
+
+	friend SwapArray<T>;
+};
+
+
+
+template<class T>
+class SwapArray
+{
+public:
+	SwapArray() = default;
+
+	template<typename... Args>
+	Handle<T> add(Args&&...);
+	void remove(Handle<T>& handle);
 
 	T& operator[](uint32_t index);
+	T& operator[](const Handle<T>& handle);
 
 	typename std::vector<T>::iterator begin();
 	typename std::vector<T>::iterator end();
 
-	typename std::vector<T>::const_iterator cbegin() const;
-	typename std::vector<T>::const_iterator cend() const;
+	typename std::vector<T>::const_iterator begin() const;
+	typename std::vector<T>::const_iterator end() const;
 
 	uint32_t size() const;
 	void     clear();
@@ -34,7 +86,8 @@ private:
 };
 
 template<class T>
-inline uint32_t FastArray<T>::add(const T& object)
+template<typename... Args>
+inline Handle<T> SwapArray<T>::add(Args&&... args)
 {
 	// Compute data_index (index in _data) and init index (index for access from outside)
 	uint32_t data_index = uint32_t(_data.size());
@@ -56,76 +109,91 @@ inline uint32_t FastArray<T>::add(const T& object)
 	}
 	
 	// Add object and reverse index
-	_data.push_back(object);
+	_data.emplace_back(args...);
 	_reverse_index.push_back(index);
 
-	return index;
+	return Handle<T>(index, *this);
 }
 
 template<class T>
-inline void FastArray<T>::remove(uint32_t index)
+inline void SwapArray<T>::remove(Handle<T>& handle)
 {
+	uint32_t index = handle._index;
 	uint32_t index_remove = _index[index];
 	// The object to remove
 	T& removed_object = _data[index_remove];
 	// The current last object
 	T& last_object = _data.back();
+
 	// The position of the last object in the index vector
 	uint32_t last_object_index = _reverse_index.back();
 	// Update index vector
 	_index[last_object_index] = index;
 
-	// Swap
-	std::swap(_reverse_index.back(), _reverse_index[index_remove]);
-	std::swap(removed_object, last_object);
+	if (index_remove != _data.size() - 1)
+	{
+		// Swap
+		std::swap(_reverse_index.back(), _reverse_index[index_remove]);
+		std::swap(removed_object, last_object);
+	}
+
+	// Add the free index in the list
+	_free_indexes.push_back(index);
 
 	// Erase
 	_reverse_index.pop_back();
 	_data.pop_back();
 
-	// Add the free index in the list
-	_free_indexes.push_back(index);
+	handle._index = 0;
+	handle._source = nullptr;
 }
 
 template<class T>
-inline T& FastArray<T>::operator[](uint32_t index)
+inline T& SwapArray<T>::operator[](const Handle<T>& handle)
+{
+	const uint32_t data_index = _index[handle._index];
+	return _data[data_index];
+}
+
+template<class T>
+inline T& SwapArray<T>::operator[](uint32_t index)
 {
 	const uint32_t data_index = _index[index];
 	return _data[data_index];
 }
 
 template<class T>
-inline typename std::vector<T>::iterator FastArray<T>::begin()
+inline typename std::vector<T>::iterator SwapArray<T>::begin()
 {
 	return _data.begin();
 }
 
 template<class T>
-inline typename std::vector<T>::iterator FastArray<T>::end()
+inline typename std::vector<T>::iterator SwapArray<T>::end()
 {
 	return _data.end();
 }
 
 template<class T>
-inline typename std::vector<T>::const_iterator FastArray<T>::cbegin() const
+inline typename std::vector<T>::const_iterator SwapArray<T>::begin() const
 {
-	return _data.cbegin();
+	return _data.begin();
 }
 
 template<class T>
-inline typename std::vector<T>::const_iterator FastArray<T>::cend() const
+inline typename std::vector<T>::const_iterator SwapArray<T>::end() const
 {
-	return _data.cend();
+	return _data.end();
 }
 
 template<class T>
-inline uint32_t FastArray<T>::size() const
+inline uint32_t SwapArray<T>::size() const
 {
 	return uint32_t(_data.size());
 }
 
 template<class T>
-inline void FastArray<T>::clear()
+inline void SwapArray<T>::clear()
 {
 	_data.clear();
 	_index.clear();
