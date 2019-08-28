@@ -5,7 +5,7 @@
 #include <functional>
 #include <algorithm>
 #include <string>
-#include "FastVersatileArray.hpp"
+#include "fast_array.hpp"
 #include "ezbench.hpp"
 
 int main()
