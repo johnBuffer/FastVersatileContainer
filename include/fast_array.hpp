@@ -16,20 +16,45 @@ namespace fva
 		template<typename T>
 		using GetterFunction = std::function<T*(uint64_t)>;
 
+		GenericHandle()
+			: ptr_getter(nullptr)
+			, index(0U)
+			, valid(false)
+		{}
+
 		template<typename Derived>
 		GenericHandle(uint64_t index_, Container<Derived>& source)
 			: ptr_getter([&](uint64_t i) { return (Base*)(&source[i]); })
 			, index(index_)
+			, valid(true)
 		{}
+
+		GenericHandle& operator=(const GenericHandle& other)
+		{
+			ptr_getter = other.ptr_getter;
+			index = other.index;
+			valid = other.valid;
+		}
 
 		Base* operator->()
 		{
 			return ptr_getter(index);
 		}
 
+		const Base* operator->() const
+		{
+			return ptr_getter(index);
+		}
+
+		operator bool() const
+		{
+			return valid;
+		}
+
 	private:
 		GetterFunction<Base> ptr_getter;
-		const uint64_t index;
+		uint64_t index;
+		bool valid;
 	};
 
 
@@ -90,6 +115,11 @@ namespace fva
 			return GenericHandle<U>(m_index, *m_source);
 		}
 
+		const uint64_t getIndex() const
+		{
+			return m_index;
+		}
+
 	private:
 		uint64_t m_index;
 		Container<T>* m_source;
@@ -101,14 +131,15 @@ namespace fva
 	class Container
 	{
 	public:
+		using ID = uint64_t;
 		Container() = default;
 
 		template<typename... Args>
 		Handle<T> add(Args&&...);
 		void remove(Handle<T>& handle);
-		void remove(uint32_t index);
+		void remove(ID index);
 
-		T& operator[](uint64_t index);
+		T& operator[](ID index);
 		T& operator[](const Handle<T>& handle);
 
 		typename std::vector<T>::iterator begin();
@@ -121,10 +152,10 @@ namespace fva
 		void     clear();
 
 	private:
-		std::vector<T>        m_data;
-		std::vector<uint32_t> m_index;
-		std::vector<uint32_t> m_reverse_index;
-		std::queue<uint32_t>   m_free_indexes;
+		std::vector<T>  m_data;
+		std::vector<ID> m_index;
+		std::vector<ID> m_reverse_index;
+		std::queue<ID>  m_free_indexes;
 	};
 
 	template<class T>
@@ -132,8 +163,8 @@ namespace fva
 	inline Handle<T> Container<T>::add(Args&&... args)
 	{
 		// Compute data_index (index in _data) and init index (index for access from outside)
-		uint32_t data_index = uint32_t(m_data.size());
-		uint32_t index = data_index;
+		ID data_index = uint32_t(m_data.size());
+		ID index = data_index;
 
 		// If empty slots in _index
 		if (!m_free_indexes.empty()) {
@@ -156,15 +187,15 @@ namespace fva
 	}
 
 	template<class T>
-	inline void Container<T>::remove(uint32_t index)
+	inline void Container<T>::remove(uint64_t index)
 	{
-		uint32_t index_remove = m_index[index];
+		ID index_remove = m_index[index];
 		// The object to remove
 		T& removed_object = m_data[index_remove];
 		// The current last object
 		T& last_object = m_data.back();
 		// The position of the last object in the index vector
-		uint32_t last_object_index = m_reverse_index.back();
+		ID last_object_index = m_reverse_index.back();
 		// Update index vector
 		m_index[last_object_index] = index;
 		if (index_remove != m_data.size() - 1) {
@@ -173,7 +204,7 @@ namespace fva
 			std::swap(removed_object, last_object);
 		}
 		// Add the free index in the list
-		m_free_indexes.push_back(index);
+		m_free_indexes.push(index);
 		// Erase
 		m_reverse_index.pop_back();
 		m_data.pop_back();
@@ -196,7 +227,7 @@ namespace fva
 	template<class T>
 	inline T& Container<T>::operator[](uint64_t index)
 	{
-		const uint32_t data_index(m_index[index]);
+		const ID data_index(m_index[index]);
 		return m_data[data_index];
 	}
 
@@ -236,7 +267,6 @@ namespace fva
 		m_data.clear();
 		m_index.clear();
 		m_reverse_index.clear();
-		m_free_indexes.clear();
 	}
 
 } // Namespace's end
