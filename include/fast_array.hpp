@@ -1,10 +1,33 @@
 #pragma once
 #include <vector>
 #include <queue>
+#include <functional>
+
 
 namespace fva
 {
 	template<typename T> class Container;
+
+
+	template<typename Base>
+	struct GenericHandle
+	{
+		template<typename Derived>
+		GenericHandle(uint64_t index_, Container<Derived>& source)
+			: ptr_getter([&](uint64_t i) { return (Base*)(&(source[i])); })
+			, index(index_)
+		{}
+
+		Base* operator->()
+		{
+			return ptr_getter(index);
+		}
+
+	private:
+		std::function<Base*(uint64_t)> ptr_getter;
+		const uint64_t index;
+	};
+
 
 	template<typename T>
 	class Handle
@@ -15,7 +38,7 @@ namespace fva
 			m_source(nullptr)
 		{}
 
-		Handle(uint32_t index, Container<T>& source) :
+		Handle(uint64_t index, Container<T>& source) :
 			m_index(index),
 			m_source(&source)
 		{}
@@ -45,12 +68,29 @@ namespace fva
 			return &(this->operator*());
 		}
 
+		template<typename U>
+		U* as()
+		{
+			return (U*)(&(*m_source)[m_index]);
+		}
+
+		template<typename U>
+		const U* as() const
+		{
+			return (const U*)((*m_source)[m_index]);
+		}
+
+		template<typename U>
+		operator GenericHandle<U>()
+		{
+			return GenericHandle<U>(m_index, *m_source);
+		}
+
 	private:
-		uint32_t m_index;
+		uint64_t m_index;
 		Container<T>* m_source;
 		friend Container<T>;
 	};
-
 
 
 	template<class T>
@@ -64,7 +104,7 @@ namespace fva
 		void remove(Handle<T>& handle);
 		void remove(uint32_t index);
 
-		T& operator[](uint32_t index);
+		T& operator[](uint64_t index);
 		T& operator[](const Handle<T>& handle);
 
 		typename std::vector<T>::iterator begin();
@@ -73,7 +113,7 @@ namespace fva
 		typename std::vector<T>::const_iterator begin() const;
 		typename std::vector<T>::const_iterator end() const;
 
-		uint32_t size() const;
+		uint64_t size() const;
 		void     clear();
 
 	private:
@@ -95,7 +135,7 @@ namespace fva
 		if (!m_free_indexes.empty()) {
 			// Get a free slot
 			index = m_free_indexes.front();
-			m_free_indexes.pop_front();
+			m_free_indexes.pop();
 			// And link it to the new object
 			m_index[index] = data_index;
 		}
@@ -139,7 +179,6 @@ namespace fva
 	inline void Container<T>::remove(Handle<T>& handle)
 	{
 		remove(handle.m_index);
-
 		handle.m_index = 0;
 		handle.m_source = nullptr;
 	}
@@ -151,7 +190,7 @@ namespace fva
 	}
 
 	template<class T>
-	inline T& Container<T>::operator[](uint32_t index)
+	inline T& Container<T>::operator[](uint64_t index)
 	{
 		const uint32_t data_index(m_index[index]);
 		return m_data[data_index];
@@ -182,7 +221,7 @@ namespace fva
 	}
 
 	template<class T>
-	inline uint32_t Container<T>::size() const
+	inline uint64_t Container<T>::size() const
 	{
 		return uint32_t(m_data.size());
 	}
