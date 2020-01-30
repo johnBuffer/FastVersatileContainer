@@ -6,15 +6,19 @@
 
 namespace fva
 {
-	template<typename T> class Container;
+	template<typename T>
+	class Container;
 
 
 	template<typename Base>
 	struct GenericHandle
 	{
+		template<typename T>
+		using GetterFunction = std::function<T*(uint64_t)>;
+
 		template<typename Derived>
 		GenericHandle(uint64_t index_, Container<Derived>& source)
-			: ptr_getter([&](uint64_t i) { return (Base*)(&(source[i])); })
+			: ptr_getter([&](uint64_t i) { return (Base*)(&source[i]); })
 			, index(index_)
 		{}
 
@@ -24,7 +28,7 @@ namespace fva
 		}
 
 	private:
-		std::function<Base*(uint64_t)> ptr_getter;
+		GetterFunction<Base> ptr_getter;
 		const uint64_t index;
 	};
 
