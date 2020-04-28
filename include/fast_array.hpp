@@ -6,6 +6,9 @@
 
 namespace fva
 {
+	using ID = uint64_t;
+
+
 	template<typename T>
 	class Container;
 
@@ -63,7 +66,7 @@ namespace fva
 	{
 	public:
 		Handle() :
-			m_index(0),
+			m_index(0U),
 			m_source(nullptr)
 		{}
 
@@ -121,7 +124,7 @@ namespace fva
 		}
 
 	private:
-		uint64_t m_index;
+		ID m_index;
 		Container<T>* m_source;
 		friend Container<T>;
 	};
@@ -131,7 +134,6 @@ namespace fva
 	class Container
 	{
 	public:
-		using ID = uint64_t;
 		Container() = default;
 
 		template<typename... Args>
